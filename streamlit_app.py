@@ -1,7 +1,4 @@
 import json
-import time
-from datetime import datetime
-
 import requests
 import streamlit as st
 
@@ -13,7 +10,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ---------------- SESSION NAV ----------------
+# ---------------- NAV ITEMS / SESSION ----------------
 NAV_ITEMS = [
     "🏠 Home",
     "🌐 Test Online",
@@ -25,8 +22,15 @@ NAV_ITEMS = [
 if "page" not in st.session_state:
     st.session_state.page = NAV_ITEMS[0]
 
+def set_page(p):
+    st.session_state.page = p
+
 def _sync_page():
     st.session_state.page = st.session_state.nav_choice
+
+# Triggered when analysis completes (email/url)
+def _celebrate():
+    st.session_state.confetti = True
 
 # ---------------- GLOBAL CSS ----------------
 st.markdown("""
@@ -58,16 +62,46 @@ html, body, [data-testid="stAppViewContainer"] {
 
 section.main > div { max-width: 1200px; margin: 0 auto; }
 
+/* ====== Sticky Top Navbar ====== */
+.topnav-wrap {
+  position: sticky; top: 0; z-index: 999;
+  backdrop-filter: blur(8px);
+  background: linear-gradient(180deg, rgba(11,11,15,.85), rgba(11,11,15,.65));
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  padding: 10px 8px;
+  margin: -16px -16px 18px -16px; /* stretch to edges */
+}
+.topnav {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+}
+.topnav .pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
+  color: #e9ecf2; font-weight: 600; letter-spacing: .1px;
+  text-decoration: none; cursor: pointer;
+  transition: transform .08s ease, background .25s ease, border .25s ease, box-shadow .25s ease;
+}
+.topnav .pill:hover {
+  transform: translateY(-1px);
+  background: rgba(255,255,255,.10);
+  border-color: rgba(255,255,255,.20);
+  box-shadow: 0 10px 24px rgba(124,58,237,0.14);
+}
+.topnav .pill.active {
+  background: linear-gradient(92deg, rgba(124,58,237,.28), rgba(34,211,238,.28), rgba(244,114,182,.24));
+  border-color: rgba(124,58,237,.55);
+  box-shadow: 0 10px 26px rgba(124,58,237,0.25), 0 0 0 1px rgba(255,255,255,.06) inset;
+}
+
 /* ====== Headings & Gradient Text ====== */
 h1, h2, h3 { font-family: 'Space Grotesk', ui-rounded, system-ui; letter-spacing: 0.2px; }
 h1 { font-size: 2.8rem; font-weight: 700; margin: 0 0 .6rem 0; }
 h2 { font-size: 1.6rem; margin: 1.6rem 0 .8rem 0; }
-
 .grad {
   background: linear-gradient(92deg, var(--brand1), var(--brand2), var(--brand3));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 
 /* ====== Cards (Glassmorphism) ====== */
@@ -80,7 +114,7 @@ h2 { font-size: 1.6rem; margin: 1.6rem 0 .8rem 0; }
   box-shadow: 0 10px 30px rgba(0,0,0,0.25);
 }
 
-/* Success / Danger / Warning variants */
+/* Success / Danger / Warning */
 .success-box { border: 1px solid rgba(52,211,153,.35)!important; background: linear-gradient(180deg, rgba(52,211,153,.12), rgba(52,211,153,.06)); }
 .danger-box  { border: 1px solid rgba(239,68,68,.35)!important; background: linear-gradient(180deg, rgba(239,68,68,.12), rgba(239,68,68,.06)); }
 .warning-box { border: 1px solid rgba(245,158,11,.35)!important; background: linear-gradient(180deg, rgba(245,158,11,.12), rgba(245,158,11,.06)); }
@@ -125,7 +159,7 @@ h2 { font-size: 1.6rem; margin: 1.6rem 0 .8rem 0; }
 /* ====== Tabs polish ====== */
 [data-baseweb="tab"] { font-family: 'Space Grotesk'; font-weight: 600; letter-spacing:.2px; }
 
-/* ====== Sidebar background ====== */
+/* ====== Sidebar (glassy) ====== */
 [data-testid="stSidebar"] {
   background: radial-gradient(800px 400px at 100% 0%, rgba(124,58,237,.18), transparent 60%),
               radial-gradient(700px 360px at 0% 0%, rgba(34,211,238,.14), transparent 60%),
@@ -134,18 +168,13 @@ h2 { font-size: 1.6rem; margin: 1.6rem 0 .8rem 0; }
   padding-top: .5rem;
 }
 
-/* Hide default "Navigation" label above radio */
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p:has(+ div [role="radiogroup"]) {
-  display: none;
-}
+/* Hide default "Navigation" title above radio */
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p:has(+ div [role="radiogroup"]) { display: none; }
 
 /* Radio container layout */
-[data-testid="stSidebar"] [role="radiogroup"] {
-  display: grid;
-  gap: 8px;
-}
+[data-testid="stSidebar"] [role="radiogroup"] { display: grid; gap: 8px; }
 
-/* Pills for each radio option */
+/* Pills for radio options */
 [data-testid="stSidebar"] [role="radiogroup"] > label {
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.12);
@@ -157,7 +186,7 @@ h2 { font-size: 1.6rem; margin: 1.6rem 0 .8rem 0; }
   transition: transform .08s ease, background .25s ease, border .25s ease, box-shadow .25s ease;
 }
 
-/* Emoji bubble to the left (we inject via JS) */
+/* Emoji bubble (injected) */
 [data-testid="stSidebar"] [role="radiogroup"] > label .emoji {
   display:inline-flex; align-items:center; justify-content:center;
   width: 28px; height: 28px; border-radius: 10px;
@@ -166,27 +195,22 @@ h2 { font-size: 1.6rem; margin: 1.6rem 0 .8rem 0; }
   box-shadow: 0 6px 18px rgba(0,0,0,.25) inset;
 }
 
-/* Hover state */
+/* Hover & active */
 [data-testid="stSidebar"] [role="radiogroup"] > label:hover {
   transform: translateY(-1px);
   background: rgba(255,255,255,0.10);
   border-color: rgba(255,255,255,0.20);
   box-shadow: 0 10px 24px rgba(124,58,237,0.14);
 }
-
-/* Selected state */
 [data-testid="stSidebar"] [role="radiogroup"] > label[aria-checked="true"]{
   background: linear-gradient(92deg, rgba(124,58,237,.28), rgba(34,211,238,.28), rgba(244,114,182,.24));
   border-color: rgba(124,58,237,.55);
   box-shadow: 0 10px 26px rgba(124,58,237,0.25), 0 0 0 1px rgba(255,255,255,.06) inset;
 }
 
-/* Ensure the text area in labels is tight */
+/* Label text */
 [data-testid="stSidebar"] [role="radiogroup"] > label p {
-  margin: 0;
-  font-weight: 600;
-  letter-spacing: .1px;
-  color: #e9ecf2;
+  margin: 0; font-weight: 600; letter-spacing: .1px; color: #e9ecf2;
 }
 
 /* Sidebar chips under title */
@@ -199,11 +223,26 @@ h2 { font-size: 1.6rem; margin: 1.6rem 0 .8rem 0; }
 .sidebar-chip .dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:6px; }
 .sidebar-chip .ok { background:#34d399; box-shadow:0 0 10px #34d399; }
 
-/* Small utility */
 .sep { height: 8px; }
-.kbd { padding:.2rem .45rem; border-radius:6px; border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.06); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 </style>
 """, unsafe_allow_html=True)
+
+# ---------------- STICKY TOP NAV ----------------
+with st.container():
+    st.markdown("<div class='topnav-wrap'>", unsafe_allow_html=True)
+    # Build the pill row
+    cols = st.columns(len(NAV_ITEMS))
+    for i, item in enumerate(NAV_ITEMS):
+        emoji, title = item.split(" ", 1)
+        active = "active" if st.session_state.page == item else ""
+        with cols[i]:
+            # Render clickable HTML label (visual)
+            st.markdown(f"<div class='topnav'><div class='pill {active}'>{emoji} {title}</div></div>", unsafe_allow_html=True)
+            # Render invisible button over it (functional)
+            if st.button(" ", key=f"topnav_{i}", help=item, use_container_width=True):
+                set_page(item)
+                st.experimental_rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # ---------------- SIDEBAR (Modern nav) ----------------
 with st.sidebar:
@@ -219,15 +258,14 @@ with st.sidebar:
 
     st.radio(
         label="Navigation",
-        options= NAV_ITEMS,
-        index= NAV_ITEMS.index(st.session_state.page) if st.session_state.page in NAV_ITEMS else 0,
+        options=NAV_ITEMS,
+        index=NAV_ITEMS.index(st.session_state.page) if st.session_state.page in NAV_ITEMS else 0,
         key="nav_choice",
         on_change=_sync_page,
-        format_func=lambda x: x,  # keep emoji text
+        format_func=lambda x: x,
     )
 
     # Inject emoji bubble + title formatting inside radio labels
-    # Compose custom HTML labels: "<span class='emoji'>🏠</span><p>Home</p>"
     html_labels = []
     for item in NAV_ITEMS:
         emoji, title = item.split(" ", 1)
@@ -244,7 +282,6 @@ with st.sidebar:
           labels.forEach((el, i) => {{
             const span = el.querySelector('span[data-baseweb="typo"]') || el.querySelector('p');
             if (!span) {{
-              // create a p if structure is different
               const p = root.createElement('p'); p.style.margin='0';
               el.appendChild(p);
               p.innerHTML = htmls[i];
@@ -260,6 +297,12 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("**Links:**  \n[GitHub](https://github.com/yourusername/phishing-detector) · [Report Issue](https://github.com/yourusername/phishing-detector/issues)")
+
+# ---------------- CONFETTI / BALLOONS TRIGGER ----------------
+# (Streamlit-native balloons as reliable celebration)
+if st.session_state.get("confetti"):
+    st.balloons()
+    st.session_state.confetti = False
 
 # ---------------- CURRENT PAGE ----------------
 page = st.session_state.page
@@ -282,11 +325,11 @@ if page == "🏠 Home":
     c1, c2, c3 = st.columns(3)
     with c1:
         if st.button("🌐 Try Online", use_container_width=True, type="primary"):
-            st.session_state.page = "🌐 Test Online"
+            set_page("🌐 Test Online")
             st.experimental_rerun()
     with c2:
         if st.button("🧩 Get Extension", use_container_width=True):
-            st.session_state.page = "📥 Install Extension"
+            set_page("📥 Install Extension")
             st.experimental_rerun()
     with c3:
         st.link_button("🐙 GitHub", "https://github.com/yourusername/phishing-detector", use_container_width=True)
@@ -350,6 +393,7 @@ elif page == "🌐 Test Online":
                                 is_phishing = data.get("label") == 1
 
                                 st.success("✅ Analysis Complete")
+                                _celebrate()
                                 colA, colB = st.columns(2)
 
                                 with colA:
@@ -412,6 +456,7 @@ elif page == "🌐 Test Online":
                                 is_phishing = data["prediction"] == "phishing"
 
                                 st.success("✅ Analysis Complete")
+                                _celebrate()
                                 colA, colB = st.columns(2)
 
                                 with colA:
