@@ -4,7 +4,7 @@ import streamlit as st
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
-    page_title="Phishing Detector — GenZ Edition",
+    page_title="Phishing Detector — NEO Edition",
     page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded",
