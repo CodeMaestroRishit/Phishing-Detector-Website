@@ -251,7 +251,7 @@ page = st.session_state.page
 
 # ---------------- HOME ----------------
 if page == "🏠 Home":
-    st.markdown("<h1>Phishing Detector <span class='grad'>Gen-Z</span> Edition</h1>", unsafe_allow_html=True)
+    st.markdown("<h1>Phishing Detector <span class='grad'>NEO</span> Edition</h1>", unsafe_allow_html=True)
     st.markdown("### ⚡ AI-powered, privacy-first, and ridiculously fast")
 
     st.markdown(
