@@ -247,6 +247,7 @@ if st.session_state.get("confetti"):
     st.session_state.confetti = False
 
 # ---------------- CURRENT PAGE ----------------
+
 page = st.session_state.page
 
 # ---------------- HOME ----------------
@@ -272,7 +273,7 @@ if page == "🏠 Home":
         if st.button("🧩 Get Extension", use_container_width=True):
             set_page("📥 Install Extension"); st.experimental_rerun()
     with c3:
-        st.link_button("🐙 GitHub", "https://github.com/yourusername/phishing-detector", use_container_width=True)
+        st.link_button("🐙 GitHub", "https://github.com/CodeMaestroRishit/phishing-detector-api", use_container_width=True)
 
     st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
 
