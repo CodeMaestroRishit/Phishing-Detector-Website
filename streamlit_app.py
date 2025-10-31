@@ -448,7 +448,7 @@ elif page == "📥 Install Extension":
         st.subheader("📦 Installation Steps")
         with st.expander("📖 Step 1: Download Extension", expanded=True):
             st.markdown("""
-            1. Open **[GitHub Repository](https://github.com/yourusername/phishing-detector)**
+            1. Open **[GitHub Repository](https://github.com/CodeMaestroRishit/phishing-detector-api)**
             2. Click **Code → Download ZIP**
             3. Extract, open the **`extension`** folder
             """)
