@@ -12,7 +12,7 @@ st.set_page_config(
 
 # ---------------- NAV ITEMS / SESSION ----------------
 TOP_NAV = ["🏠 Home", "🌐 Test Online", "📥 Install Extension"]   # top bar (3 items)
-NAV_ITEMS = TOP_NAV + ["❓ FAQ", "📊 About"]                      # sidebar shows all
+NAV_ITEMS = TOP_NAV + ["❓ FAQ", "📊 About", "📄 Privacy"]          # sidebar shows all (ADDED PRIVACY)
 
 if "page" not in st.session_state:
     st.session_state.page = TOP_NAV[0]
@@ -268,10 +268,10 @@ if page == "🏠 Home":
     c1, c2, c3 = st.columns(3)
     with c1:
         if st.button("🌐 Try Online", use_container_width=True):
-            set_page("🌐 Test Online"); st.experimental_rerun()
+            set_page("🌐 Test Online"); st.rerun()
     with c2:
         if st.button("🧩 Get Extension", use_container_width=True):
-            set_page("📥 Install Extension"); st.experimental_rerun()
+            set_page("📥 Install Extension"); st.rerun()
     with c3:
         st.link_button("🐙 GitHub", "https://github.com/CodeMaestroRishit/phishing-detector-api", use_container_width=True)
 
@@ -299,7 +299,7 @@ if page == "🏠 Home":
 # ---------------- TEST ONLINE ----------------
 elif page == "🌐 Test Online":
     st.markdown("<h1>🔎 Test <span class='grad'>Phishing Detector</span></h1>", unsafe_allow_html=True)
-    st.caption("Paste the sus stuff. We’ll do the forensic dance.")
+    st.caption("Paste the sus stuff. We'll do the forensic dance.")
 
     tab1, tab2 = st.tabs(["📧 Email Analysis", "🔗 URL Analysis"])
 
@@ -481,7 +481,7 @@ elif page == "📥 Install Extension":
         - 🧪 **Open source**  
         - 💸 **Always free**
         """)
-        st.link_button("🐙 View on GitHub", "https://github.com/yourusername/phishing-detector", use_container_width=True)
+        st.link_button("🐙 View on GitHub", "https://github.com/CodeMaestroRishit/phishing-detector-api", use_container_width=True)
 
     st.divider()
     st.subheader("🐛 Troubleshooting")
@@ -508,7 +508,7 @@ elif page == "❓ FAQ":
     with st.expander("Free?"):
         st.markdown("Forever free. No ads.")
     with st.expander("Report a bug / contribute?"):
-        st.markdown("[Open an issue](https://github.com/yourusername/phishing-detector/issues) · PRs welcome!")
+        st.markdown("[Open an issue](https://github.com/CodeMaestroRishit/phishing-detector-api/issues) · PRs welcome!")
 
 # ---------------- ABOUT ----------------
 elif page == "📊 About":
@@ -534,17 +534,128 @@ elif page == "📊 About":
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
-        st.link_button("GitHub Repository", "https://github.com/yourusername/phishing-detector", use_container_width=True)
+        st.link_button("GitHub Repository", "https://github.com/CodeMaestroRishit/phishing-detector-api", use_container_width=True)
     with col2:
-        st.link_button("Report Issue", "https://github.com/yourusername/phishing-detector/issues", use_container_width=True)
+        st.link_button("Report Issue", "https://github.com/CodeMaestroRishit/phishing-detector-api/issues", use_container_width=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("**License:** MIT  \n**Support:** Open an issue on GitHub")
+
+# ============ PRIVACY POLICY PAGE (NEW) ============
+elif page == "📄 Privacy":
+    st.markdown("<h1>📄 Privacy Policy</h1>", unsafe_allow_html=True)
+    st.markdown("**Last Updated:** November 1, 2025")
+    
+    st.divider()
+    
+    st.subheader("🎯 Introduction")
+    st.markdown("""
+    Phishing Detector is committed to protecting your privacy. This Privacy Policy explains how we collect, 
+    use, and protect information when you use our Chrome extension and website.
+    """)
+    
+    st.subheader("📊 What Information We Collect")
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("### ✅ Information You Provide:")
+        st.markdown("""
+        - **Selected Text:** When you select text and use the extension, it's sent to our API for analysis
+        - **Analysis Results:** We display phishing probability scores
+        """)
+    
+    with c2:
+        st.markdown("### ❌ What We DO NOT Collect:")
+        st.markdown("""
+        - Your personal info (name, email, address)
+        - Browsing history
+        - Cookies or tracking data
+        - Device information
+        - Location data
+        - User profiles
+        """)
+    
+    st.divider()
+    
+    st.subheader("🔧 How We Use Information")
+    st.markdown("""
+    - **Phishing Detection:** Analyzing content using ML models
+    - **Displaying Results:** Showing if content is likely phishing or safe
+    - **Model Improvement:** Aggregated, anonymized data only (optional)
+    """)
+    
+    st.divider()
+    
+    st.subheader("💾 Data Storage & Retention")
+    st.markdown("""
+    - **Temporary Processing:** Text processed immediately for analysis
+    - **No Permanent Storage:** We do NOT store your analyzed text
+    - **Instant Deletion:** Results deleted after being displayed
+    - **No Logs:** No permanent records of your queries
+    """)
+    
+    st.divider()
+    
+    st.subheader("🔒 Data Security")
+    st.markdown("""
+    - ✅ HTTPS encryption for all communication
+    - ✅ Secure, managed infrastructure
+    - ✅ No third-party data sharing
+    - ✅ No advertising or data selling
+    """)
+    
+    st.divider()
+    
+    st.subheader("👥 Data Sharing")
+    st.markdown("""
+    - **We NEVER share** your data with third parties
+    - **We NEVER sell** your data
+    - **We do NOT use** your data for marketing
+    - **Your data stays** between you and our servers
+    """)
+    
+    st.divider()
+    
+    st.subheader("✋ Your Rights")
+    st.markdown("""
+    - **Disable:** Uninstall the extension anytime
+    - **Request Deletion:** Ask for your data to be removed
+    - **Access:** Understand your usage data
+    """)
+    
+    st.divider()
+    
+    st.subheader("📧 Contact Us")
+    st.markdown("""
+    For privacy concerns or data requests:
+    - **Email:** your-email@example.com
+    - **GitHub Issues:** https://github.com/CodeMaestroRishit/phishing-detector-api/issues
+    """)
+    
+    st.divider()
+    
+    st.subheader("⚖️ Legal Compliance")
+    st.markdown("""
+    This extension complies with:
+    - Chrome Web Store Privacy Policy
+    - GDPR (General Data Protection Regulation)
+    - CCPA (California Consumer Privacy Act)
+    """)
+    
+    st.divider()
+    
+    st.markdown("""
+    <div class="card" style="text-align: center; padding: 20px;">
+    <p><strong>Your privacy is our priority. We take data protection seriously.</strong></p>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ---------------- FOOTER ----------------
 st.markdown("---")
 st.markdown(
     "<div style='text-align:center;color:#9aa2b1;padding:1rem 0;'>"
-    "© 2024 • <a href='https://github.com/yourusername/phishing-detector'>GitHub</a> • Built with ❤️ + caffeine"
+    "© 2024 • <a href='https://github.com/CodeMaestroRishit/phishing-detector-api'>GitHub</a> • "
+    "<a href='#' onclick='document.location.href=\"?page=privacy\"'>Privacy Policy</a> • "
+    "Built with ❤️ + caffeine"
     "</div>", unsafe_allow_html=True
 )
