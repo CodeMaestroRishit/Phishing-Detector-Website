@@ -14,23 +14,24 @@ st.set_page_config(
 # Custom CSS
 st.markdown("""
 <style>
-    .main { padding: 2rem; max-width: 1200px; }
-    h1 { color: #2563eb; font-size: 3rem; margin-bottom: 0.5rem; }
-    h2 { color: #1e40af; margin-top: 2rem; border-bottom: 2px solid #2563eb; padding-bottom: 0.5rem; }
-    .feature-box { background: #f0f9ff; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #2563eb; margin: 1rem 0; }
-    .success-box { background: #e6f7ed; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #059669; margin: 1rem 0; }
-    .danger-box { background: #fdeaea; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #dc2626; margin: 1rem 0; }
-    .warning-box { background: #fef3c7; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #d97706; margin: 1rem 0; }
-    .cta-button { background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); color: white; padding: 1rem; border-radius: 8px; text-align: center; font-weight: bold; margin: 1rem 0; }
-    .stat-card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; }
-    .stat-value { font-size: 2rem; font-weight: bold; color: #2563eb; }
-    .stat-label { font-size: 0.9rem; color: #666; margin-top: 0.5rem; }
+    .main { padding: 3rem 2rem; max-width: 1200px; }
+    h1 { color: #1a1a1a; font-size: 2.5rem; margin-bottom: 1rem; font-weight: 600; }
+    h2 { color: #2a2a2a; margin-top: 3rem; margin-bottom: 1.5rem; font-weight: 500; }
+    h3 { color: #333; font-weight: 500; }
+    .feature-box { background: #fafafa; padding: 2rem; border-radius: 4px; border: 1px solid #e5e5e5; margin: 1rem 0; }
+    .success-box { background: #f5f5f5; padding: 1.5rem; border-radius: 4px; border: 1px solid #d4d4d4; margin: 1rem 0; }
+    .danger-box { background: #fafafa; padding: 1.5rem; border-radius: 4px; border: 1px solid #dc2626; margin: 1rem 0; }
+    .warning-box { background: #fafafa; padding: 1.5rem; border-radius: 4px; border: 1px solid #d97706; margin: 1rem 0; }
+    .stat-card { background: #fafafa; padding: 2rem; border-radius: 4px; border: 1px solid #e5e5e5; text-align: center; }
+    .stat-value { font-size: 2rem; font-weight: 600; color: #1a1a1a; }
+    .stat-label { font-size: 0.875rem; color: #666; margin-top: 0.75rem; }
+    .metric-card { background: #fafafa; padding: 2rem; border-radius: 4px; border: 1px solid #e5e5e5; }
 </style>
 """, unsafe_allow_html=True)
 
 # Sidebar
 with st.sidebar:
-    st.title("🛡️ Phishing Detector")
+    st.title("Phishing Detector")
     st.markdown("---")
     page = st.radio("Navigation", [
         "🏠 Home",
@@ -41,94 +42,45 @@ with st.sidebar:
     ])
     st.markdown("---")
     st.markdown("""
-    **Quick Links:**
+    **Links:**
     - [GitHub](https://github.com/yourusername/phishing-detector)
     - [Report Issue](https://github.com/yourusername/phishing-detector/issues)
-    - [Privacy Policy](https://github.com/yourusername/phishing-detector/blob/main/PRIVACY.md)
     """)
 
 # ============ HOME PAGE ============
 if page == "🏠 Home":
     # Hero Section
-    col1, col2 = st.columns([1.5, 1])
+    st.title("Phishing Detector")
+    st.markdown("### AI-powered protection against phishing attacks")
     
-    with col1:
-        st.title("🛡️ Phishing Detector")
-        st.markdown("### AI-Powered Protection Against Phishing Attacks")
-        st.markdown("""
-        Stay safe online with our dual machine learning models that detect phishing attempts in real-time.
-        
-        **Protect yourself against:**
-        - 📧 Phishing emails
-        - 🔗 Malicious URLs
-        - ⚠️ Social engineering attacks
-        """)
-        
-        col_a, col_b, col_c = st.columns(3)
-        with col_a:
-            if st.button("🌐 Try Online", use_container_width=True, type="primary"):
-                st.session_state.page = "🌐 Test Online"
-                st.rerun()
-        with col_b:
-            if st.button("📥 Get Extension", use_container_width=True):
-                st.session_state.page = "📥 Install Extension"
-                st.rerun()
-        with col_c:
-            st.link_button("🐙 GitHub", "https://github.com/yourusername/phishing-detector")
+    st.markdown("""
+    Stay safe online with dual machine learning models that detect phishing attempts in real-time.
+    """)
     
-    with col2:
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); padding: 2rem; border-radius: 12px; color: white; text-align: center;">
-            <h2 style="color: white; margin: 0;">94.2%</h2>
-            <p style="font-size: 0.9rem; margin: 0.5rem 0 0 0;">Detection Accuracy</p>
-            <hr style="border-color: rgba(255,255,255,0.3);">
-            <h3 style="color: white; margin: 0.5rem 0;">Trusted by Students & Professionals</h3>
-        </div>
-        """, unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
     
-    st.divider()
+    col_a, col_b, col_c = st.columns(3)
+    with col_a:
+        if st.button("Try Online", use_container_width=True, type="primary"):
+            st.session_state.page = "🌐 Test Online"
+            st.rerun()
+    with col_b:
+        if st.button("Get Extension", use_container_width=True):
+            st.session_state.page = "📥 Install Extension"
+            st.rerun()
+    with col_c:
+        st.link_button("GitHub", "https://github.com/yourusername/phishing-detector", use_container_width=True)
     
-    # Features Section
-    st.markdown("## ✨ Key Features")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("""
-        <div class="feature-box">
-        <h3>⚡ Lightning Fast</h3>
-        <p>Get analysis results in milliseconds. No waiting, instant protection.</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("""
-        <div class="feature-box">
-        <h3>🔒 100% Private</h3>
-        <p>No data collection. No tracking. Your privacy is our priority.</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown("""
-        <div class="feature-box">
-        <h3>🤖 AI-Powered</h3>
-        <p>Trained on 10,000+ samples. Dual models for email + URL detection.</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.divider()
+    st.markdown("<br><br>", unsafe_allow_html=True)
     
     # Stats
-    st.markdown("## 📊 By The Numbers")
-    
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         st.markdown("""
         <div class="stat-card">
         <div class="stat-value">94.2%</div>
-        <div class="stat-label">Accuracy Rate</div>
+        <div class="stat-label">Accuracy</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -152,38 +104,45 @@ if page == "🏠 Home":
         st.markdown("""
         <div class="stat-card">
         <div class="stat-value">$0</div>
-        <div class="stat-label">Forever Free</div>
+        <div class="stat-label">Free Forever</div>
         </div>
         """, unsafe_allow_html=True)
     
-    st.divider()
+    st.markdown("<br><br>", unsafe_allow_html=True)
     
-    # CTA
-    st.markdown("## Get Started Now!")
-    col1, col2 = st.columns(2)
+    # Features Section
+    st.markdown("## Features")
+    
+    col1, col2, col3 = st.columns(3)
     
     with col1:
         st.markdown("""
-        <h3>🌐 Test Online</h3>
-        Try the phishing detector directly in your browser. No installation needed.
-        """)
-        if st.button("Test Now", use_container_width=True, type="primary"):
-            st.session_state.page = "🌐 Test Online"
-            st.rerun()
+        <div class="feature-box">
+        <h3>Fast</h3>
+        <p>Get analysis results in milliseconds. Instant protection.</p>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col2:
         st.markdown("""
-        <h3>📥 Install Extension</h3>
-        Get real-time protection for Gmail, Outlook, and any website.
-        """)
-        if st.button("Install", use_container_width=True):
-            st.session_state.page = "📥 Install Extension"
-            st.rerun()
+        <div class="feature-box">
+        <h3>Private</h3>
+        <p>No data collection. No tracking. Your privacy is protected.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown("""
+        <div class="feature-box">
+        <h3>AI-Powered</h3>
+        <p>Trained on 10,000+ samples. Dual models for email and URL detection.</p>
+        </div>
+        """, unsafe_allow_html=True)
 
 # ============ TEST ONLINE PAGE ============
 elif page == "🌐 Test Online":
-    st.title("🌐 Test Phishing Detector")
-    st.markdown("Try our AI models directly. Analyze emails and URLs for phishing threats.")
+    st.title("Test Phishing Detector")
+    st.markdown("Analyze emails and URLs for phishing threats.")
     
     tab1, tab2 = st.tabs(["📧 Email Analysis", "🔗 URL Analysis"])
     
@@ -322,8 +281,8 @@ elif page == "🌐 Test Online":
 
 # ============ INSTALL EXTENSION PAGE ============
 elif page == "📥 Install Extension":
-    st.title("📥 Install Chrome Extension")
-    st.markdown("Get real-time phishing protection in your browser!")
+    st.title("Install Chrome Extension")
+    st.markdown("Get real-time phishing protection in your browser.")
     
     st.info("🎉 **Coming Soon to Chrome Web Store!** In the meantime, follow the manual installation steps below.")
     
@@ -418,7 +377,7 @@ elif page == "📥 Install Extension":
 
 # ============ FAQ PAGE ============
 elif page == "❓ FAQ":
-    st.title("❓ Frequently Asked Questions")
+    st.title("Frequently Asked Questions")
     
     with st.expander("What is phishing?"):
         st.markdown("""
@@ -470,17 +429,17 @@ elif page == "❓ FAQ":
 
 # ============ ABOUT PAGE ============
 elif page == "📊 About":
-    st.title("📊 About Phishing Detector")
+    st.title("About")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("🎯 Our Mission")
+        st.subheader("Our Mission")
         st.markdown("""
         Make phishing detection accessible to everyone, regardless of technical skill level.
         """)
         
-        st.subheader("🔧 Technology Stack")
+        st.subheader("Technology Stack")
         st.markdown("""
         - **Backend:** FastAPI (Python)
         - **ML Models:** scikit-learn
@@ -490,13 +449,13 @@ elif page == "📊 About":
         """)
     
     with col2:
-        st.subheader("📈 Model Performance")
+        st.subheader("Model Performance")
         
         st.metric("Email Model Accuracy", "94.2%", "on test data")
         st.metric("URL Model Accuracy", "91.7%", "on test data")
         st.metric("Combined Average", "93.5%", "accuracy")
         
-        st.subheader("📚 Training Data")
+        st.subheader("Training Data")
         st.markdown("""
         - **10,000+** email samples
         - **5,000+** URLs analyzed
@@ -504,9 +463,9 @@ elif page == "📊 About":
         - Real-world phishing examples
         """)
     
-    st.divider()
+    st.markdown("<br>", unsafe_allow_html=True)
     
-    st.subheader("🚀 Project Timeline")
+    st.subheader("Project Timeline")
     st.markdown("""
     - **Sept 2024:** Initial development
     - **Oct 2024:** API deployment on Render
@@ -515,34 +474,28 @@ elif page == "📊 About":
     - **Future:** Firefox, Safari support
     """)
     
-    st.divider()
+    st.markdown("<br>", unsafe_allow_html=True)
     
-    st.subheader("🔗 Links & Resources")
+    st.subheader("Links")
     
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
     with col1:
-        st.link_button("🐙 GitHub Repository", "https://github.com/yourusername/phishing-detector")
+        st.link_button("GitHub Repository", "https://github.com/yourusername/phishing-detector", use_container_width=True)
     with col2:
-        st.link_button("📧 Report Issue", "https://github.com/yourusername/phishing-detector/issues")
-    with col3:
-        st.link_button("📄 Privacy Policy", "https://github.com/yourusername/phishing-detector/blob/main/PRIVACY.md")
+        st.link_button("Report Issue", "https://github.com/yourusername/phishing-detector/issues", use_container_width=True)
     
-    st.divider()
+    st.markdown("<br>", unsafe_allow_html=True)
     
     st.markdown("""
-    **Made by:** Your Name  
     **License:** MIT  
     **Support:** Open an issue on GitHub
     """)
 
 # Footer
-st.divider()
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("---")
 st.markdown("""
-<div style="text-align: center; color: #666; padding: 2rem;">
-    <p>🛡️ <strong>Phishing Detector</strong> - Your AI Security Assistant</p>
-    <p style="font-size: 0.9rem;">
-        © 2024 | <a href="https://github.com/yourusername/phishing-detector">GitHub</a> | 
-        <a href="https://github.com/yourusername/phishing-detector/blob/main/PRIVACY.md">Privacy</a>
-    </p>
+<div style="text-align: center; color: #666; padding: 1.5rem 0;">
+    <p style="font-size: 0.875rem;">© 2024 | <a href="https://github.com/yourusername/phishing-detector">GitHub</a></p>
 </div>
 """, unsafe_allow_html=True)
