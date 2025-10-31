@@ -28,11 +28,10 @@ def set_page(p):
 def _sync_page():
     st.session_state.page = st.session_state.nav_choice
 
-# Triggered when analysis completes (email/url)
 def _celebrate():
     st.session_state.confetti = True
 
-# ---------------- GLOBAL CSS ----------------
+# ---------------- GLOBAL CSS (Desktop + Mobile) ----------------
 st.markdown("""
 <style>
 /* ====== Fonts & Root ====== */
@@ -62,54 +61,50 @@ html, body, [data-testid="stAppViewContainer"] {
 
 section.main > div { max-width: 1200px; margin: 0 auto; }
 
-/* ====== Sticky Top Navbar ====== */
+/* ====== Sticky Top Navbar (mobile-first) ====== */
 .topnav-wrap {
   position: sticky; top: 0; z-index: 999;
   backdrop-filter: blur(8px);
-  background: linear-gradient(180deg, rgba(11,11,15,.85), rgba(11,11,15,.65));
+  background: linear-gradient(180deg, rgba(11,11,15,.90), rgba(11,11,15,.65));
   border-bottom: 1px solid rgba(255,255,255,.06);
-  padding: 10px 8px;
-  margin: -16px -16px 18px -16px; /* stretch to edges */
+  padding: 8px 8px;
+  margin: -16px -16px 14px -16px;
 }
 .topnav {
-  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  display: flex; gap: 8px; align-items: center;
+  overflow-x: auto; white-space: nowrap; scrollbar-width: none;
 }
+.topnav::-webkit-scrollbar { display: none; }
+
 .topnav .pill {
   display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 12px; border-radius: 999px;
+  padding: 10px 14px; border-radius: 999px;
   border: 1px solid rgba(255,255,255,.12);
-  background: rgba(255,255,255,.06);
-  color: #e9ecf2; font-weight: 600; letter-spacing: .1px;
-  text-decoration: none; cursor: pointer;
+  background: rgba(255,255,255,.08);
+  color: #e9ecf2; font-weight: 700; letter-spacing: .1px;
+  text-decoration: none; cursor: pointer; font-size: 0.95rem;
   transition: transform .08s ease, background .25s ease, border .25s ease, box-shadow .25s ease;
 }
-.topnav .pill:hover {
-  transform: translateY(-1px);
-  background: rgba(255,255,255,.10);
-  border-color: rgba(255,255,255,.20);
-  box-shadow: 0 10px 24px rgba(124,58,237,0.14);
-}
+.topnav .pill:hover { transform: translateY(-1px); }
 .topnav .pill.active {
-  background: linear-gradient(92deg, rgba(124,58,237,.28), rgba(34,211,238,.28), rgba(244,114,182,.24));
+  background: linear-gradient(92deg, rgba(124,58,237,.30), rgba(34,211,238,.30), rgba(244,114,182,.26));
   border-color: rgba(124,58,237,.55);
-  box-shadow: 0 10px 26px rgba(124,58,237,0.25), 0 0 0 1px rgba(255,255,255,.06) inset;
+  box-shadow: 0 8px 22px rgba(124,58,237,0.22), 0 0 0 1px rgba(255,255,255,.04) inset;
 }
 
 /* ====== Headings & Gradient Text ====== */
 h1, h2, h3 { font-family: 'Space Grotesk', ui-rounded, system-ui; letter-spacing: 0.2px; }
-h1 { font-size: 2.8rem; font-weight: 700; margin: 0 0 .6rem 0; }
-h2 { font-size: 1.6rem; margin: 1.6rem 0 .8rem 0; }
-.grad {
-  background: linear-gradient(92deg, var(--brand1), var(--brand2), var(--brand3));
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-}
+h1 { font-size: 2.4rem; font-weight: 800; margin: 0 0 .5rem 0; }
+h2 { font-size: 1.4rem; margin: 1.2rem 0 .7rem 0; }
+.grad { background: linear-gradient(92deg, var(--brand1), var(--brand2), var(--brand3));
+  -webkit-background-clip: text; background-clip: text; color: transparent; }
 
 /* ====== Cards (Glassmorphism) ====== */
 .card, .feature-box, .stat-card, .metric-card, .glass, .success-box, .danger-box, .warning-box {
   background: var(--card);
   border: 1px solid var(--card-border);
   border-radius: 16px;
-  padding: 18px 20px;
+  padding: 16px 16px;
   backdrop-filter: blur(8px);
   box-shadow: 0 10px 30px rgba(0,0,0,0.25);
 }
@@ -122,7 +117,7 @@ h2 { font-size: 1.6rem; margin: 1.6rem 0 .8rem 0; }
 /* ====== Badges / Chips ====== */
 .badge {
   display:inline-flex; gap:.5rem; align-items:center;
-  padding:.35rem .7rem; border-radius:999px; font-size:.82rem;
+  padding:.35rem .7rem; border-radius:999px; font-size:.86rem;
   background: rgba(255,255,255,0.06); border:1px solid var(--card-border); color: var(--muted);
 }
 .badge .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
@@ -131,8 +126,8 @@ h2 { font-size: 1.6rem; margin: 1.6rem 0 .8rem 0; }
 .dot.danger { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
 
 /* ====== Metrics ====== */
-.stat-value { font-size: 1.9rem; font-weight: 700; }
-.stat-label { font-size: .85rem; color: var(--muted); margin-top: .4rem; }
+.stat-value { font-size: 1.7rem; font-weight: 800; }
+.stat-label { font-size: .86rem; color: var(--muted); margin-top: .3rem; }
 
 /* ====== Inputs ====== */
 .stTextArea textarea, .stTextInput input {
@@ -140,15 +135,18 @@ h2 { font-size: 1.6rem; margin: 1.6rem 0 .8rem 0; }
   border: 1px solid rgba(255,255,255,0.14) !important;
   color: var(--text) !important;
   border-radius: 12px !important;
+  font-size: 1rem !important;
+  padding: .9rem !important;
 }
 
 /* ====== Buttons ====== */
 .stButton>button, .stLinkButton>a {
-  border-radius: 12px !important;
-  padding: .7rem 1rem !important;
+  border-radius: 14px !important;
+  padding: .85rem 1rem !important;
   border: 1px solid rgba(255,255,255,0.18) !important;
-  background-image: linear-gradient(92deg, rgba(124,58,237,.25), rgba(34,211,238,.25));
+  background-image: linear-gradient(92deg, rgba(124,58,237,.28), rgba(34,211,238,.28));
   color: white !important;
+  font-weight: 800 !important;
   transition: transform .08s ease, box-shadow .2s ease, background .3s ease;
 }
 .stButton>button:hover, .stLinkButton>a:hover {
@@ -157,9 +155,9 @@ h2 { font-size: 1.6rem; margin: 1.6rem 0 .8rem 0; }
 }
 
 /* ====== Tabs polish ====== */
-[data-baseweb="tab"] { font-family: 'Space Grotesk'; font-weight: 600; letter-spacing:.2px; }
+[data-baseweb="tab"] { font-family: 'Space Grotesk'; font-weight: 700; letter-spacing:.2px; }
 
-/* ====== Sidebar (glassy) ====== */
+/* ====== Sidebar (hide on small screens) ====== */
 [data-testid="stSidebar"] {
   background: radial-gradient(800px 400px at 100% 0%, rgba(124,58,237,.18), transparent 60%),
               radial-gradient(700px 360px at 0% 0%, rgba(34,211,238,.14), transparent 60%),
@@ -168,90 +166,70 @@ h2 { font-size: 1.6rem; margin: 1.6rem 0 .8rem 0; }
   padding-top: .5rem;
 }
 
-/* Hide default "Navigation" title above radio */
+/* Remove default "Navigation" label above radio */
 [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p:has(+ div [role="radiogroup"]) { display: none; }
 
-/* Radio container layout */
 [data-testid="stSidebar"] [role="radiogroup"] { display: grid; gap: 8px; }
-
-/* Pills for radio options */
 [data-testid="stSidebar"] [role="radiogroup"] > label {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 14px;
-  padding: 10px 12px;
-  color: #e9ecf2;
-  display: flex; align-items: center; gap: 10px;
-  cursor: pointer;
-  transition: transform .08s ease, background .25s ease, border .25s ease, box-shadow .25s ease;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px; padding: 10px 12px; color: #e9ecf2;
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
 }
-
-/* Emoji bubble (injected) */
 [data-testid="stSidebar"] [role="radiogroup"] > label .emoji {
   display:inline-flex; align-items:center; justify-content:center;
   width: 28px; height: 28px; border-radius: 10px;
   background: linear-gradient(92deg, rgba(124,58,237,.25), rgba(34,211,238,.25));
   border: 1px solid rgba(255,255,255,.14);
-  box-shadow: 0 6px 18px rgba(0,0,0,.25) inset;
 }
 
-/* Hover & active */
-[data-testid="stSidebar"] [role="radiogroup"] > label:hover {
-  transform: translateY(-1px);
-  background: rgba(255,255,255,0.10);
-  border-color: rgba(255,255,255,0.20);
-  box-shadow: 0 10px 24px rgba(124,58,237,0.14);
+/* ====== MOBILE TUNING (≤ 720px) ====== */
+@media (max-width: 720px) {
+  html, body, [data-testid="stAppViewContainer"] {
+    background: #0b0b0f; /* flatter for perf */
+  }
+  .card, .feature-box, .stat-card, .metric-card, .glass, .success-box, .danger-box, .warning-box {
+    backdrop-filter: none; /* reduce GPU cost */
+    box-shadow: 0 6px 16px rgba(0,0,0,0.28);
+    padding: 14px 14px;
+  }
+  h1 { font-size: 1.9rem; }
+  h2 { font-size: 1.2rem; }
+  .stat-value { font-size: 1.45rem; }
+  .badge { font-size: .9rem; }
+  .topnav-wrap { padding: 6px 6px; margin-bottom: 10px; }
+  .topnav .pill { padding: 9px 12px; font-size: .95rem; }
+  /* Hide sidebar entirely on phones to reclaim space */
+  [data-testid="stSidebar"] { display: none; }
+  /* Tighten column gutters */
+  .block-container { padding-left: 12px; padding-right: 12px; }
 }
-[data-testid="stSidebar"] [role="radiogroup"] > label[aria-checked="true"]{
-  background: linear-gradient(92deg, rgba(124,58,237,.28), rgba(34,211,238,.28), rgba(244,114,182,.24));
-  border-color: rgba(124,58,237,.55);
-  box-shadow: 0 10px 26px rgba(124,58,237,0.25), 0 0 0 1px rgba(255,255,255,.06) inset;
-}
-
-/* Label text */
-[data-testid="stSidebar"] [role="radiogroup"] > label p {
-  margin: 0; font-weight: 600; letter-spacing: .1px; color: #e9ecf2;
-}
-
-/* Sidebar chips under title */
-.sidebar-mini { display:flex; gap:8px; margin:.4rem 0 1rem 0; }
-.sidebar-chip {
-  font-size: .78rem; color: #b9bed3;
-  padding:.25rem .55rem; border-radius:999px;
-  background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
-}
-.sidebar-chip .dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:6px; }
-.sidebar-chip .ok { background:#34d399; box-shadow:0 0 10px #34d399; }
-
-.sep { height: 8px; }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- STICKY TOP NAV ----------------
+# ---------------- STICKY TOP NAV (primary on mobile) ----------------
 with st.container():
-    st.markdown("<div class='topnav-wrap'>", unsafe_allow_html=True)
-    # Build the pill row
+    # Background bar
+    st.markdown("<div class='topnav-wrap'><div class='topnav'>", unsafe_allow_html=True)
+    # Render nav pills as Streamlit buttons (works everywhere, thumb-friendly)
     cols = st.columns(len(NAV_ITEMS))
     for i, item in enumerate(NAV_ITEMS):
         emoji, title = item.split(" ", 1)
-        active = "active" if st.session_state.page == item else ""
+        active = (st.session_state.page == item)
         with cols[i]:
-            # Render clickable HTML label (visual)
-            st.markdown(f"<div class='topnav'><div class='pill {active}'>{emoji} {title}</div></div>", unsafe_allow_html=True)
-            # Render invisible button over it (functional)
-            if st.button(" ", key=f"topnav_{i}", help=item, use_container_width=True):
+            label = f"{emoji} {title}" + (" •" if active else "")
+            if st.button(label, key=f"topnav_{i}"):
                 set_page(item)
                 st.experimental_rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
-# ---------------- SIDEBAR (Modern nav) ----------------
+# ---------------- SIDEBAR (kept for tablets/desktops) ----------------
 with st.sidebar:
     st.markdown("<h2 style='margin:0;'>🛡️ Phishing Detector</h2>", unsafe_allow_html=True)
     st.caption("Click-safe, vibe-safe.")
     st.markdown(
         "<div class='sidebar-mini'>"
-        "<span class='sidebar-chip'><span class='dot ok'></span>API Live</span>"
-        "<span class='sidebar-chip'>Latency &lt;100ms</span>"
+        "<span class='badge'><span class='dot ok'></span>API Live</span> "
+        "<span class='badge'>Latency &lt;100ms</span>"
         "</div>",
         unsafe_allow_html=True
     )
@@ -265,7 +243,7 @@ with st.sidebar:
         format_func=lambda x: x,
     )
 
-    # Inject emoji bubble + title formatting inside radio labels
+    # Inject emoji bubble + title formatting inside radio labels (visual only)
     html_labels = []
     for item in NAV_ITEMS:
         emoji, title = item.split(" ", 1)
@@ -295,11 +273,7 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
-    st.markdown("---")
-    st.markdown("**Links:**  \n[GitHub](https://github.com/yourusername/phishing-detector) · [Report Issue](https://github.com/yourusername/phishing-detector/issues)")
-
-# ---------------- CONFETTI / BALLOONS TRIGGER ----------------
-# (Streamlit-native balloons as reliable celebration)
+# ---------------- CELEBRATION ----------------
 if st.session_state.get("confetti"):
     st.balloons()
     st.session_state.confetti = False
@@ -324,17 +298,15 @@ if page == "🏠 Home":
 
     c1, c2, c3 = st.columns(3)
     with c1:
-        if st.button("🌐 Try Online", use_container_width=True, type="primary"):
-            set_page("🌐 Test Online")
-            st.experimental_rerun()
+        if st.button("🌐 Try Online", use_container_width=True):
+            set_page("🌐 Test Online"); st.experimental_rerun()
     with c2:
         if st.button("🧩 Get Extension", use_container_width=True):
-            set_page("📥 Install Extension")
-            st.experimental_rerun()
+            set_page("📥 Install Extension"); st.experimental_rerun()
     with c3:
         st.link_button("🐙 GitHub", "https://github.com/yourusername/phishing-detector", use_container_width=True)
 
-    st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
 
     s1, s2, s3, s4 = st.columns(4)
     with s1:
@@ -368,13 +340,13 @@ elif page == "🌐 Test Online":
         st.markdown("<span class='badge'><span class='dot warn'></span>Tip: include subject + sender line</span>", unsafe_allow_html=True)
         email_text = st.text_area(
             "Email content:",
-            height=250,
+            height=220,
             placeholder="Subject: Account Alert\nFrom: service@yourbank-secure.com\n\nDear user, please verify your account by clicking the link below...",
             label_visibility="collapsed"
         )
         c1, _ = st.columns([1,5])
         with c1:
-            if st.button("🔍 Analyze", use_container_width=True, type="primary", key="email_btn"):
+            if st.button("🔍 Analyze", use_container_width=True, key="email_btn"):
                 if not email_text:
                     st.error("❌ Please enter email content")
                 elif len(email_text) < 30:
@@ -395,7 +367,6 @@ elif page == "🌐 Test Online":
                                 st.success("✅ Analysis Complete")
                                 _celebrate()
                                 colA, colB = st.columns(2)
-
                                 with colA:
                                     if is_phishing:
                                         st.markdown("""
@@ -411,7 +382,6 @@ elif page == "🌐 Test Online":
                                           <p>No obvious phishing indicators found.</p>
                                           <p><b>Still verify</b> the sender before action.</p>
                                         </div>""", unsafe_allow_html=True)
-
                                 with colB:
                                     st.metric("Phishing Probability", f"{prob:.1f}%")
                                     if prob < 30:
@@ -437,7 +407,7 @@ elif page == "🌐 Test Online":
         url = st.text_input("URL:", placeholder="https://example.com", label_visibility="collapsed")
         c1, _ = st.columns([1,5])
         with c1:
-            if st.button("🔍 Analyze", use_container_width=True, type="primary", key="url_btn"):
+            if st.button("🔍 Analyze", use_container_width=True, key="url_btn"):
                 if not url:
                     st.error("❌ Please enter a URL")
                 elif not url.startswith(("http://", "https://")):
@@ -458,7 +428,6 @@ elif page == "🌐 Test Online":
                                 st.success("✅ Analysis Complete")
                                 _celebrate()
                                 colA, colB = st.columns(2)
-
                                 with colA:
                                     if is_phishing:
                                         st.markdown("""
@@ -473,7 +442,6 @@ elif page == "🌐 Test Online":
                                           <h3>🟢 URL APPEARS SAFE</h3>
                                           <p>No obvious phishing patterns detected.</p>
                                         </div>""", unsafe_allow_html=True)
-
                                 with colB:
                                     st.metric("Phishing Probability", f"{prob:.1f}%")
                                     if prob < 30:
