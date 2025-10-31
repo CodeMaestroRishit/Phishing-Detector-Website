@@ -11,25 +11,41 @@ st.set_page_config(
 )
 
 # ---------------- NAV ITEMS / SESSION ----------------
-NAV_ITEMS = [
-    "🏠 Home",
-    "🌐 Test Online",
-    "📥 Install Extension",
-    "❓ FAQ",
-    "📊 About",
-]
+TOP_NAV = ["🏠 Home", "🌐 Test Online", "📥 Install Extension"]
+NAV_ITEMS = TOP_NAV + ["❓ FAQ", "📊 About"]  # sidebar still shows all pages
 
+# init session
 if "page" not in st.session_state:
-    st.session_state.page = NAV_ITEMS[0]
+    st.session_state.page = TOP_NAV[0]
+if "confetti" not in st.session_state:
+    st.session_state.confetti = False
 
-def set_page(p):
+def set_page(p: str):
     st.session_state.page = p
 
 def _sync_page():
+    # sidebar radio -> session.page
     st.session_state.page = st.session_state.nav_choice
 
 def _celebrate():
     st.session_state.confetti = True
+
+# ---------------- ORGANIZED TOP BAR (3 items) ----------------
+with st.container():
+    st.markdown("<div class='topnav-wrap'><div class='topnav-rail'><div class='topnav-row'>", unsafe_allow_html=True)
+    cols = st.columns(3)
+    for i, item in enumerate(TOP_NAV):
+        emoji, title = item.split(" ", 1)
+        is_active = (st.session_state.page == item)
+        with cols[i]:
+            st.markdown(
+                f"<div class='top-pill {'active' if is_active else ''}'>{emoji} {title}</div>",
+                unsafe_allow_html=True
+            )
+            if st.button(" ", key=f"topnav_btn_{i}", help=item, use_container_width=True):
+                set_page(item)
+                st.rerun()
+    st.markdown("</div></div></div>", unsafe_allow_html=True)
 
 # ---------------- GLOBAL CSS (Desktop + Mobile) ----------------
 st.markdown("""
@@ -61,50 +77,56 @@ html, body, [data-testid="stAppViewContainer"] {
 
 section.main > div { max-width: 1200px; margin: 0 auto; }
 
-/* ====== Sticky Top Navbar (mobile-first) ====== */
+/* ====== Organized Top Nav (3 items) ====== */
 .topnav-wrap {
   position: sticky; top: 0; z-index: 999;
   backdrop-filter: blur(8px);
   background: linear-gradient(180deg, rgba(11,11,15,.90), rgba(11,11,15,.65));
   border-bottom: 1px solid rgba(255,255,255,.06);
-  padding: 8px 8px;
-  margin: -16px -16px 14px -16px;
+  margin: -16px -16px 18px -16px;
+  padding: 10px 0;
 }
-.topnav {
-  display: flex; gap: 8px; align-items: center;
-  overflow-x: auto; white-space: nowrap; scrollbar-width: none;
+.topnav-rail { max-width: 980px; margin: 0 auto; padding: 0 12px; }
+.topnav-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px; align-items: center;
 }
-.topnav::-webkit-scrollbar { display: none; }
-
-.topnav .pill {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 10px 14px; border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.12);
-  background: rgba(255,255,255,.08);
+.top-pill {
+  display: inline-flex; justify-content: center; align-items: center; gap: 10px;
+  width: 100%; padding: 10px 14px; border-radius: 14px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.10);
   color: #e9ecf2; font-weight: 700; letter-spacing: .1px;
-  text-decoration: none; cursor: pointer; font-size: 0.95rem;
   transition: transform .08s ease, background .25s ease, border .25s ease, box-shadow .25s ease;
 }
-.topnav .pill:hover { transform: translateY(-1px); }
-.topnav .pill.active {
-  background: linear-gradient(92deg, rgba(124,58,237,.30), rgba(34,211,238,.30), rgba(244,114,182,.26));
+.top-pill:hover { transform: translateY(-1px); background: rgba(255,255,255,.10); }
+.top-pill.active {
+  background: linear-gradient(92deg, rgba(124,58,237,.28), rgba(34,211,238,.28));
   border-color: rgba(124,58,237,.55);
   box-shadow: 0 8px 22px rgba(124,58,237,0.22), 0 0 0 1px rgba(255,255,255,.04) inset;
+  position: relative;
+}
+.top-pill.active::after {
+  content: ""; position: absolute; left: 12%; right: 12%; bottom: -6px; height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(92deg, rgba(124,58,237,.9), rgba(34,211,238,.9));
+  box-shadow: 0 0 12px rgba(124,58,237,.6);
 }
 
 /* ====== Headings & Gradient Text ====== */
 h1, h2, h3 { font-family: 'Space Grotesk', ui-rounded, system-ui; letter-spacing: 0.2px; }
-h1 { font-size: 2.4rem; font-weight: 800; margin: 0 0 .5rem 0; }
-h2 { font-size: 1.4rem; margin: 1.2rem 0 .7rem 0; }
+h1 { font-size: 2.6rem; font-weight: 800; margin: 0 0 .6rem 0; }
+h2 { font-size: 1.5rem; margin: 1.4rem 0 .8rem 0; }
 .grad { background: linear-gradient(92deg, var(--brand1), var(--brand2), var(--brand3));
   -webkit-background-clip: text; background-clip: text; color: transparent; }
 
-/* ====== Cards (Glassmorphism) ====== */
+/* ====== Cards ====== */
 .card, .feature-box, .stat-card, .metric-card, .glass, .success-box, .danger-box, .warning-box {
   background: var(--card);
   border: 1px solid var(--card-border);
   border-radius: 16px;
-  padding: 16px 16px;
+  padding: 18px 20px;
   backdrop-filter: blur(8px);
   box-shadow: 0 10px 30px rgba(0,0,0,0.25);
 }
@@ -126,7 +148,7 @@ h2 { font-size: 1.4rem; margin: 1.2rem 0 .7rem 0; }
 .dot.danger { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
 
 /* ====== Metrics ====== */
-.stat-value { font-size: 1.7rem; font-weight: 800; }
+.stat-value { font-size: 1.8rem; font-weight: 800; }
 .stat-label { font-size: .86rem; color: var(--muted); margin-top: .3rem; }
 
 /* ====== Inputs ====== */
@@ -157,7 +179,7 @@ h2 { font-size: 1.4rem; margin: 1.2rem 0 .7rem 0; }
 /* ====== Tabs polish ====== */
 [data-baseweb="tab"] { font-family: 'Space Grotesk'; font-weight: 700; letter-spacing:.2px; }
 
-/* ====== Sidebar (hide on small screens) ====== */
+/* ====== Sidebar (desktop/tablet) ====== */
 [data-testid="stSidebar"] {
   background: radial-gradient(800px 400px at 100% 0%, rgba(124,58,237,.18), transparent 60%),
               radial-gradient(700px 360px at 0% 0%, rgba(34,211,238,.14), transparent 60%),
@@ -165,10 +187,7 @@ h2 { font-size: 1.4rem; margin: 1.2rem 0 .7rem 0; }
   border-right: 1px solid rgba(255,255,255,.06);
   padding-top: .5rem;
 }
-
-/* Remove default "Navigation" label above radio */
 [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p:has(+ div [role="radiogroup"]) { display: none; }
-
 [data-testid="stSidebar"] [role="radiogroup"] { display: grid; gap: 8px; }
 [data-testid="stSidebar"] [role="radiogroup"] > label {
   background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
@@ -182,45 +201,27 @@ h2 { font-size: 1.4rem; margin: 1.2rem 0 .7rem 0; }
   border: 1px solid rgba(255,255,255,.14);
 }
 
-/* ====== MOBILE TUNING (≤ 720px) ====== */
+/* ====== MOBILE (≤ 720px) ====== */
 @media (max-width: 720px) {
-  html, body, [data-testid="stAppViewContainer"] {
-    background: #0b0b0f; /* flatter for perf */
-  }
+  html, body, [data-testid="stAppViewContainer"] { background: #0b0b0f; }
   .card, .feature-box, .stat-card, .metric-card, .glass, .success-box, .danger-box, .warning-box {
-    backdrop-filter: none; /* reduce GPU cost */
-    box-shadow: 0 6px 16px rgba(0,0,0,0.28);
-    padding: 14px 14px;
+    backdrop-filter: none; box-shadow: 0 6px 16px rgba(0,0,0,0.28); padding: 14px 14px;
   }
-  h1 { font-size: 1.9rem; }
-  h2 { font-size: 1.2rem; }
-  .stat-value { font-size: 1.45rem; }
-  .badge { font-size: .9rem; }
-  .topnav-wrap { padding: 6px 6px; margin-bottom: 10px; }
-  .topnav .pill { padding: 9px 12px; font-size: .95rem; }
-  /* Hide sidebar entirely on phones to reclaim space */
-  [data-testid="stSidebar"] { display: none; }
-  /* Tighten column gutters */
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.25rem; }
+  .stat-value { font-size: 1.5rem; }
+  .badge { font-size: .92rem; }
+  .topnav-row {
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+    overflow-x: auto; gap: 8px; padding-bottom: 4px; scrollbar-width: none;
+  }
+  .topnav-row::-webkit-scrollbar { display: none; }
+  .top-pill { padding: 9px 12px; font-size: .95rem; }
+  [data-testid="stSidebar"] { display: none; }          /* hide sidebar on phones */
   .block-container { padding-left: 12px; padding-right: 12px; }
 }
 </style>
 """, unsafe_allow_html=True)
-
-# ---------------- STICKY TOP NAV (primary on mobile) ----------------
-with st.container():
-    # Background bar
-    st.markdown("<div class='topnav-wrap'><div class='topnav'>", unsafe_allow_html=True)
-    # Render nav pills as Streamlit buttons (works everywhere, thumb-friendly)
-    cols = st.columns(len(NAV_ITEMS))
-    for i, item in enumerate(NAV_ITEMS):
-        emoji, title = item.split(" ", 1)
-        active = (st.session_state.page == item)
-        with cols[i]:
-            label = f"{emoji} {title}" + (" •" if active else "")
-            if st.button(label, key=f"topnav_{i}"):
-                set_page(item)
-                st.experimental_rerun()
-    st.markdown("</div></div>", unsafe_allow_html=True)
 
 # ---------------- SIDEBAR (kept for tablets/desktops) ----------------
 with st.sidebar:
@@ -233,7 +234,6 @@ with st.sidebar:
         "</div>",
         unsafe_allow_html=True
     )
-
     st.radio(
         label="Navigation",
         options=NAV_ITEMS,
@@ -243,36 +243,6 @@ with st.sidebar:
         format_func=lambda x: x,
     )
 
-    # Inject emoji bubble + title formatting inside radio labels (visual only)
-    html_labels = []
-    for item in NAV_ITEMS:
-        emoji, title = item.split(" ", 1)
-        html_labels.append(f"<span class='emoji'>{emoji}</span><p>{title}</p>")
-
-    st.markdown(
-        f"""
-        <script>
-        const root = window.parent.document;
-        const group = root.querySelector('[data-testid="stSidebar"] [role="radiogroup"]');
-        if (group) {{
-          const labels = group.querySelectorAll('label');
-          const htmls = {json.dumps(html_labels)};
-          labels.forEach((el, i) => {{
-            const span = el.querySelector('span[data-baseweb="typo"]') || el.querySelector('p');
-            if (!span) {{
-              const p = root.createElement('p'); p.style.margin='0';
-              el.appendChild(p);
-              p.innerHTML = htmls[i];
-            }} else {{
-              span.innerHTML = htmls[i];
-            }}
-          }});
-        }}
-        </script>
-        """,
-        unsafe_allow_html=True
-    )
-
 # ---------------- CELEBRATION ----------------
 if st.session_state.get("confetti"):
     st.balloons()
@@ -280,6 +250,7 @@ if st.session_state.get("confetti"):
 
 # ---------------- CURRENT PAGE ----------------
 page = st.session_state.page
+
 
 # ---------------- HOME ----------------
 if page == "🏠 Home":
