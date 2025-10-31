@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Phishing Detector - AI Powered",
+  "version": "1.0.0",
+  "description": "Detect phishing emails and websites using dual AI models. Real-time protection while browsing.",
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["https://phishing-detector-api-1.onrender.com/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "48": "icon-48.png",
+      "128": "icon-128.png"
+    }
+  },
+  "icons": {
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ]
+}
