@@ -1,7 +1,4 @@
 import json
-import time
-from datetime import datetime
-
 import requests
 import streamlit as st
 
@@ -13,22 +10,42 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ---------------- SESSION NAV ----------------
-NAV_ITEMS = [
-    "🏠 Home",
-    "🌐 Test Online",
-    "📥 Install Extension",
-    "❓ FAQ",
-    "📊 About",
-]
+# ---------------- NAV ITEMS / SESSION ----------------
+TOP_NAV = ["🏠 Home", "🌐 Test Online", "📥 Install Extension"]   # top bar (3 items)
+NAV_ITEMS = TOP_NAV + ["❓ FAQ", "📊 About"]                      # sidebar shows all
 
 if "page" not in st.session_state:
-    st.session_state.page = NAV_ITEMS[0]
+    st.session_state.page = TOP_NAV[0]
+if "confetti" not in st.session_state:
+    st.session_state.confetti = False
+
+def set_page(p: str):
+    st.session_state.page = p
 
 def _sync_page():
     st.session_state.page = st.session_state.nav_choice
 
-# ---------------- GLOBAL CSS ----------------
+def _celebrate():
+    st.session_state.confetti = True
+
+# ---------------- ORGANIZED TOP BAR (3 items) ----------------
+with st.container():
+    st.markdown("<div class='topnav-wrap'><div class='topnav-rail'><div class='topnav-row'>", unsafe_allow_html=True)
+    cols = st.columns(3)
+    for i, item in enumerate(TOP_NAV):
+        emoji, title = item.split(" ", 1)
+        is_active = (st.session_state.page == item)
+        with cols[i]:
+            st.markdown(
+                f"<div class='top-pill {'active' if is_active else ''}'>{emoji} {title}</div>",
+                unsafe_allow_html=True
+            )
+            if st.button(" ", key=f"topnav_btn_{i}", help=item, use_container_width=True):
+                set_page(item)
+                st.rerun()
+    st.markdown("</div></div></div>", unsafe_allow_html=True)
+
+# ---------------- GLOBAL CSS (Desktop + Mobile) ----------------
 st.markdown("""
 <style>
 /* ====== Fonts & Root ====== */
@@ -58,19 +75,51 @@ html, body, [data-testid="stAppViewContainer"] {
 
 section.main > div { max-width: 1200px; margin: 0 auto; }
 
-/* ====== Headings & Gradient Text ====== */
-h1, h2, h3 { font-family: 'Space Grotesk', ui-rounded, system-ui; letter-spacing: 0.2px; }
-h1 { font-size: 2.8rem; font-weight: 700; margin: 0 0 .6rem 0; }
-h2 { font-size: 1.6rem; margin: 1.6rem 0 .8rem 0; }
-
-.grad {
-  background: linear-gradient(92deg, var(--brand1), var(--brand2), var(--brand3));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+/* ====== Organized Top Nav (3 items) ====== */
+.topnav-wrap {
+  position: sticky; top: 0; z-index: 999;
+  backdrop-filter: blur(8px);
+  background: linear-gradient(180deg, rgba(11,11,15,.90), rgba(11,11,15,.65));
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  margin: -16px -16px 18px -16px;
+  padding: 10px 0;
+}
+.topnav-rail { max-width: 980px; margin: 0 auto; padding: 0 12px; }
+.topnav-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px; align-items: center;
+}
+.top-pill {
+  display: inline-flex; justify-content: center; align-items: center; gap: 10px;
+  width: 100%; padding: 10px 14px; border-radius: 14px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.10);
+  color: #e9ecf2; font-weight: 700; letter-spacing: .1px;
+  transition: transform .08s ease, background .25s ease, border .25s ease, box-shadow .25s ease;
+}
+.top-pill:hover { transform: translateY(-1px); background: rgba(255,255,255,.10); }
+.top-pill.active {
+  background: linear-gradient(92deg, rgba(124,58,237,.28), rgba(34,211,238,.28));
+  border-color: rgba(124,58,237,.55);
+  box-shadow: 0 8px 22px rgba(124,58,237,0.22), 0 0 0 1px rgba(255,255,255,.04) inset;
+  position: relative;
+}
+.top-pill.active::after {
+  content: ""; position: absolute; left: 12%; right: 12%; bottom: -6px; height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(92deg, rgba(124,58,237,.9), rgba(34,211,238,.9));
+  box-shadow: 0 0 12px rgba(124,58,237,.6);
 }
 
-/* ====== Cards (Glassmorphism) ====== */
+/* ====== Headings & Gradient Text ====== */
+h1, h2, h3 { font-family: 'Space Grotesk', ui-rounded, system-ui; letter-spacing: 0.2px; }
+h1 { font-size: 2.6rem; font-weight: 800; margin: 0 0 .6rem 0; }
+h2 { font-size: 1.5rem; margin: 1.4rem 0 .8rem 0; }
+.grad { background: linear-gradient(92deg, var(--brand1), var(--brand2), var(--brand3));
+  -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* ====== Cards ====== */
 .card, .feature-box, .stat-card, .metric-card, .glass, .success-box, .danger-box, .warning-box {
   background: var(--card);
   border: 1px solid var(--card-border);
@@ -80,7 +129,7 @@ h2 { font-size: 1.6rem; margin: 1.6rem 0 .8rem 0; }
   box-shadow: 0 10px 30px rgba(0,0,0,0.25);
 }
 
-/* Success / Danger / Warning variants */
+/* Success / Danger / Warning */
 .success-box { border: 1px solid rgba(52,211,153,.35)!important; background: linear-gradient(180deg, rgba(52,211,153,.12), rgba(52,211,153,.06)); }
 .danger-box  { border: 1px solid rgba(239,68,68,.35)!important; background: linear-gradient(180deg, rgba(239,68,68,.12), rgba(239,68,68,.06)); }
 .warning-box { border: 1px solid rgba(245,158,11,.35)!important; background: linear-gradient(180deg, rgba(245,158,11,.12), rgba(245,158,11,.06)); }
@@ -88,7 +137,7 @@ h2 { font-size: 1.6rem; margin: 1.6rem 0 .8rem 0; }
 /* ====== Badges / Chips ====== */
 .badge {
   display:inline-flex; gap:.5rem; align-items:center;
-  padding:.35rem .7rem; border-radius:999px; font-size:.82rem;
+  padding:.35rem .7rem; border-radius:999px; font-size:.86rem;
   background: rgba(255,255,255,0.06); border:1px solid var(--card-border); color: var(--muted);
 }
 .badge .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
@@ -97,8 +146,8 @@ h2 { font-size: 1.6rem; margin: 1.6rem 0 .8rem 0; }
 .dot.danger { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
 
 /* ====== Metrics ====== */
-.stat-value { font-size: 1.9rem; font-weight: 700; }
-.stat-label { font-size: .85rem; color: var(--muted); margin-top: .4rem; }
+.stat-value { font-size: 1.8rem; font-weight: 800; }
+.stat-label { font-size: .86rem; color: var(--muted); margin-top: .3rem; }
 
 /* ====== Inputs ====== */
 .stTextArea textarea, .stTextInput input {
@@ -106,15 +155,18 @@ h2 { font-size: 1.6rem; margin: 1.6rem 0 .8rem 0; }
   border: 1px solid rgba(255,255,255,0.14) !important;
   color: var(--text) !important;
   border-radius: 12px !important;
+  font-size: 1rem !important;
+  padding: .9rem !important;
 }
 
 /* ====== Buttons ====== */
 .stButton>button, .stLinkButton>a {
-  border-radius: 12px !important;
-  padding: .7rem 1rem !important;
+  border-radius: 14px !important;
+  padding: .85rem 1rem !important;
   border: 1px solid rgba(255,255,255,0.18) !important;
-  background-image: linear-gradient(92deg, rgba(124,58,237,.25), rgba(34,211,238,.25));
+  background-image: linear-gradient(92deg, rgba(124,58,237,.28), rgba(34,211,238,.28));
   color: white !important;
+  font-weight: 800 !important;
   transition: transform .08s ease, box-shadow .2s ease, background .3s ease;
 }
 .stButton>button:hover, .stLinkButton>a:hover {
@@ -123,9 +175,9 @@ h2 { font-size: 1.6rem; margin: 1.6rem 0 .8rem 0; }
 }
 
 /* ====== Tabs polish ====== */
-[data-baseweb="tab"] { font-family: 'Space Grotesk'; font-weight: 600; letter-spacing:.2px; }
+[data-baseweb="tab"] { font-family: 'Space Grotesk'; font-weight: 700; letter-spacing:.2px; }
 
-/* ====== Sidebar background ====== */
+/* ====== Sidebar (desktop/tablet) ====== */
 [data-testid="stSidebar"] {
   background: radial-gradient(800px 400px at 100% 0%, rgba(124,58,237,.18), transparent 60%),
               radial-gradient(700px 360px at 0% 0%, rgba(34,211,238,.14), transparent 60%),
@@ -133,133 +185,66 @@ h2 { font-size: 1.6rem; margin: 1.6rem 0 .8rem 0; }
   border-right: 1px solid rgba(255,255,255,.06);
   padding-top: .5rem;
 }
-
-/* Hide default "Navigation" label above radio */
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p:has(+ div [role="radiogroup"]) {
-  display: none;
-}
-
-/* Radio container layout */
-[data-testid="stSidebar"] [role="radiogroup"] {
-  display: grid;
-  gap: 8px;
-}
-
-/* Pills for each radio option */
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p:has(+ div [role="radiogroup"]) { display: none; }
+[data-testid="stSidebar"] [role="radiogroup"] { display: grid; gap: 8px; }
 [data-testid="stSidebar"] [role="radiogroup"] > label {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 14px;
-  padding: 10px 12px;
-  color: #e9ecf2;
-  display: flex; align-items: center; gap: 10px;
-  cursor: pointer;
-  transition: transform .08s ease, background .25s ease, border .25s ease, box-shadow .25s ease;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px; padding: 10px 12px; color: #e9ecf2;
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
 }
-
-/* Emoji bubble to the left (we inject via JS) */
 [data-testid="stSidebar"] [role="radiogroup"] > label .emoji {
   display:inline-flex; align-items:center; justify-content:center;
   width: 28px; height: 28px; border-radius: 10px;
   background: linear-gradient(92deg, rgba(124,58,237,.25), rgba(34,211,238,.25));
   border: 1px solid rgba(255,255,255,.14);
-  box-shadow: 0 6px 18px rgba(0,0,0,.25) inset;
 }
 
-/* Hover state */
-[data-testid="stSidebar"] [role="radiogroup"] > label:hover {
-  transform: translateY(-1px);
-  background: rgba(255,255,255,0.10);
-  border-color: rgba(255,255,255,0.20);
-  box-shadow: 0 10px 24px rgba(124,58,237,0.14);
+/* ====== MOBILE (≤ 720px) ====== */
+@media (max-width: 720px) {
+  html, body, [data-testid="stAppViewContainer"] { background: #0b0b0f; }
+  .card, .feature-box, .stat-card, .metric-card, .glass, .success-box, .danger-box, .warning-box {
+    backdrop-filter: none; box-shadow: 0 6px 16px rgba(0,0,0,0.28); padding: 14px 14px;
+  }
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.25rem; }
+  .stat-value { font-size: 1.5rem; }
+  .badge { font-size: .92rem; }
+  .topnav-row {
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+    overflow-x: auto; gap: 8px; padding-bottom: 4px; scrollbar-width: none;
+  }
+  .topnav-row::-webkit-scrollbar { display: none; }
+  .top-pill { padding: 9px 12px; font-size: .95rem; }
+  [data-testid="stSidebar"] { display: none; }          /* hide sidebar on phones */
+  .block-container { padding-left: 12px; padding-right: 12px; }
 }
-
-/* Selected state */
-[data-testid="stSidebar"] [role="radiogroup"] > label[aria-checked="true"]{
-  background: linear-gradient(92deg, rgba(124,58,237,.28), rgba(34,211,238,.28), rgba(244,114,182,.24));
-  border-color: rgba(124,58,237,.55);
-  box-shadow: 0 10px 26px rgba(124,58,237,0.25), 0 0 0 1px rgba(255,255,255,.06) inset;
-}
-
-/* Ensure the text area in labels is tight */
-[data-testid="stSidebar"] [role="radiogroup"] > label p {
-  margin: 0;
-  font-weight: 600;
-  letter-spacing: .1px;
-  color: #e9ecf2;
-}
-
-/* Sidebar chips under title */
-.sidebar-mini { display:flex; gap:8px; margin:.4rem 0 1rem 0; }
-.sidebar-chip {
-  font-size: .78rem; color: #b9bed3;
-  padding:.25rem .55rem; border-radius:999px;
-  background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
-}
-.sidebar-chip .dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:6px; }
-.sidebar-chip .ok { background:#34d399; box-shadow:0 0 10px #34d399; }
-
-/* Small utility */
-.sep { height: 8px; }
-.kbd { padding:.2rem .45rem; border-radius:6px; border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.06); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- SIDEBAR (Modern nav) ----------------
+# ---------------- SIDEBAR (desktop/tablet) ----------------
 with st.sidebar:
     st.markdown("<h2 style='margin:0;'>🛡️ Phishing Detector</h2>", unsafe_allow_html=True)
     st.caption("Click-safe, vibe-safe.")
     st.markdown(
         "<div class='sidebar-mini'>"
-        "<span class='sidebar-chip'><span class='dot ok'></span>API Live</span>"
-        "<span class='sidebar-chip'>Latency &lt;100ms</span>"
+        "<span class='badge'><span class='dot ok'></span>API Live</span> "
+        "<span class='badge'>Latency &lt;100ms</span>"
         "</div>",
         unsafe_allow_html=True
     )
-
     st.radio(
         label="Navigation",
         options= NAV_ITEMS,
         index= NAV_ITEMS.index(st.session_state.page) if st.session_state.page in NAV_ITEMS else 0,
         key="nav_choice",
         on_change=_sync_page,
-        format_func=lambda x: x,  # keep emoji text
+        format_func=lambda x: x,
     )
 
-    # Inject emoji bubble + title formatting inside radio labels
-    # Compose custom HTML labels: "<span class='emoji'>🏠</span><p>Home</p>"
-    html_labels = []
-    for item in NAV_ITEMS:
-        emoji, title = item.split(" ", 1)
-        html_labels.append(f"<span class='emoji'>{emoji}</span><p>{title}</p>")
-
-    st.markdown(
-        f"""
-        <script>
-        const root = window.parent.document;
-        const group = root.querySelector('[data-testid="stSidebar"] [role="radiogroup"]');
-        if (group) {{
-          const labels = group.querySelectorAll('label');
-          const htmls = {json.dumps(html_labels)};
-          labels.forEach((el, i) => {{
-            const span = el.querySelector('span[data-baseweb="typo"]') || el.querySelector('p');
-            if (!span) {{
-              // create a p if structure is different
-              const p = root.createElement('p'); p.style.margin='0';
-              el.appendChild(p);
-              p.innerHTML = htmls[i];
-            }} else {{
-              span.innerHTML = htmls[i];
-            }}
-          }});
-        }}
-        </script>
-        """,
-        unsafe_allow_html=True
-    )
-
-    st.markdown("---")
-    st.markdown("**Links:**  \n[GitHub](https://github.com/yourusername/phishing-detector) · [Report Issue](https://github.com/yourusername/phishing-detector/issues)")
+# ---------------- CELEBRATION ----------------
+if st.session_state.get("confetti"):
+    st.balloons()
+    st.session_state.confetti = False
 
 # ---------------- CURRENT PAGE ----------------
 page = st.session_state.page
@@ -281,17 +266,15 @@ if page == "🏠 Home":
 
     c1, c2, c3 = st.columns(3)
     with c1:
-        if st.button("🌐 Try Online", use_container_width=True, type="primary"):
-            st.session_state.page = "🌐 Test Online"
-            st.experimental_rerun()
+        if st.button("🌐 Try Online", use_container_width=True):
+            set_page("🌐 Test Online"); st.experimental_rerun()
     with c2:
         if st.button("🧩 Get Extension", use_container_width=True):
-            st.session_state.page = "📥 Install Extension"
-            st.experimental_rerun()
+            set_page("📥 Install Extension"); st.experimental_rerun()
     with c3:
         st.link_button("🐙 GitHub", "https://github.com/yourusername/phishing-detector", use_container_width=True)
 
-    st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
 
     s1, s2, s3, s4 = st.columns(4)
     with s1:
@@ -319,19 +302,24 @@ elif page == "🌐 Test Online":
 
     tab1, tab2 = st.tabs(["📧 Email Analysis", "🔗 URL Analysis"])
 
-    # Email Analysis
+    # ---- Email Analysis ----
     with tab1:
         st.subheader("📧 Analyze Email Content")
         st.markdown("<span class='badge'><span class='dot warn'></span>Tip: include subject + sender line</span>", unsafe_allow_html=True)
+
         email_text = st.text_area(
             "Email content:",
-            height=250,
+            height=220,
             placeholder="Subject: Account Alert\nFrom: service@yourbank-secure.com\n\nDear user, please verify your account by clicking the link below...",
             label_visibility="collapsed"
         )
+
+        # wide-area placeholder for results
+        email_results = st.container()
+
         c1, _ = st.columns([1,5])
         with c1:
-            if st.button("🔍 Analyze", use_container_width=True, type="primary", key="email_btn"):
+            if st.button("🔍 Analyze", use_container_width=True, key="email_btn"):
                 if not email_text:
                     st.error("❌ Please enter email content")
                 elif len(email_text) < 30:
@@ -350,32 +338,34 @@ elif page == "🌐 Test Online":
                                 is_phishing = data.get("label") == 1
 
                                 st.success("✅ Analysis Complete")
-                                colA, colB = st.columns(2)
+                                _celebrate()
 
-                                with colA:
-                                    if is_phishing:
-                                        st.markdown("""
-                                        <div class="danger-box">
-                                          <h3>🚨 PHISHING DETECTED</h3>
-                                          <p>This email shows strong phishing signals.</p>
-                                          <p><b>Do not</b> click links or download attachments.</p>
-                                        </div>""", unsafe_allow_html=True)
-                                    else:
-                                        st.markdown("""
-                                        <div class="success-box">
-                                          <h3>🟢 LIKELY SAFE</h3>
-                                          <p>No obvious phishing indicators found.</p>
-                                          <p><b>Still verify</b> the sender before action.</p>
-                                        </div>""", unsafe_allow_html=True)
-
-                                with colB:
-                                    st.metric("Phishing Probability", f"{prob:.1f}%")
-                                    if prob < 30:
-                                        st.markdown("<div class='badge'><span class='dot ok'></span>Risk: Low</div>", unsafe_allow_html=True)
-                                    elif prob < 70:
-                                        st.markdown("<div class='badge'><span class='dot warn'></span>Risk: Medium</div>", unsafe_allow_html=True)
-                                    else:
-                                        st.markdown("<div class='badge'><span class='dot danger'></span>Risk: High</div>", unsafe_allow_html=True)
+                                # render results in wide area (not inside c1)
+                                with email_results:
+                                    colA, colB = st.columns([2,1])
+                                    with colA:
+                                        if is_phishing:
+                                            st.markdown("""
+                                            <div class="danger-box">
+                                              <h3>🚨 PHISHING DETECTED</h3>
+                                              <p>This email shows strong phishing signals.</p>
+                                              <p><b>Do not</b> click links or download attachments.</p>
+                                            </div>""", unsafe_allow_html=True)
+                                        else:
+                                            st.markdown("""
+                                            <div class="success-box">
+                                              <h3>🟢 LIKELY SAFE</h3>
+                                              <p>No obvious phishing indicators found.</p>
+                                              <p><b>Still verify</b> the sender before action.</p>
+                                            </div>""", unsafe_allow_html=True)
+                                    with colB:
+                                        st.metric("Phishing Probability", f"{prob:.1f}%")
+                                        if prob < 30:
+                                            st.markdown("<div class='badge'><span class='dot ok'></span>Risk: Low</div>", unsafe_allow_html=True)
+                                        elif prob < 70:
+                                            st.markdown("<div class='badge'><span class='dot warn'></span>Risk: Medium</div>", unsafe_allow_html=True)
+                                        else:
+                                            st.markdown("<div class='badge'><span class='dot danger'></span>Risk: High</div>", unsafe_allow_html=True)
 
                             elif r.status_code == 503:
                                 st.error("⏱️ API cold start — try again in a bit.")
@@ -386,14 +376,18 @@ elif page == "🌐 Test Online":
                         except Exception as e:
                             st.error(f"❌ Error: {str(e)}")
 
-    # URL Analysis
+    # ---- URL Analysis ----
     with tab2:
         st.subheader("🔗 Analyze URL")
         st.markdown("<span class='badge'><span class='dot warn'></span>Must start with http:// or https://</span>", unsafe_allow_html=True)
+
         url = st.text_input("URL:", placeholder="https://example.com", label_visibility="collapsed")
+
+        url_results = st.container()
+
         c1, _ = st.columns([1,5])
         with c1:
-            if st.button("🔍 Analyze", use_container_width=True, type="primary", key="url_btn"):
+            if st.button("🔍 Analyze", use_container_width=True, key="url_btn"):
                 if not url:
                     st.error("❌ Please enter a URL")
                 elif not url.startswith(("http://", "https://")):
@@ -412,31 +406,32 @@ elif page == "🌐 Test Online":
                                 is_phishing = data["prediction"] == "phishing"
 
                                 st.success("✅ Analysis Complete")
-                                colA, colB = st.columns(2)
+                                _celebrate()
 
-                                with colA:
-                                    if is_phishing:
-                                        st.markdown("""
-                                        <div class="danger-box">
-                                          <h3>⚠️ SUSPICIOUS LINK</h3>
-                                          <p>This URL looks phishy.</p>
-                                          <p><b>Avoid</b> opening or entering credentials.</p>
-                                        </div>""", unsafe_allow_html=True)
-                                    else:
-                                        st.markdown("""
-                                        <div class="success-box">
-                                          <h3>🟢 URL APPEARS SAFE</h3>
-                                          <p>No obvious phishing patterns detected.</p>
-                                        </div>""", unsafe_allow_html=True)
-
-                                with colB:
-                                    st.metric("Phishing Probability", f"{prob:.1f}%")
-                                    if prob < 30:
-                                        st.markdown("<div class='badge'><span class='dot ok'></span>Risk: Low</div>", unsafe_allow_html=True)
-                                    elif prob < 70:
-                                        st.markdown("<div class='badge'><span class='dot warn'></span>Risk: Medium</div>", unsafe_allow_html=True)
-                                    else:
-                                        st.markdown("<div class='badge'><span class='dot danger'></span>Risk: High</div>", unsafe_allow_html=True)
+                                with url_results:
+                                    colA, colB = st.columns([2,1])
+                                    with colA:
+                                        if is_phishing:
+                                            st.markdown("""
+                                            <div class="danger-box">
+                                              <h3>⚠️ SUSPICIOUS LINK</h3>
+                                              <p>This URL looks phishy.</p>
+                                              <p><b>Avoid</b> opening or entering credentials.</p>
+                                            </div>""", unsafe_allow_html=True)
+                                        else:
+                                            st.markdown("""
+                                            <div class="success-box">
+                                              <h3>🟢 URL APPEARS SAFE</h3>
+                                              <p>No obvious phishing patterns detected.</p>
+                                            </div>""", unsafe_allow_html=True)
+                                    with colB:
+                                        st.metric("Phishing Probability", f"{prob:.1f}%")
+                                        if prob < 30:
+                                            st.markdown("<div class='badge'><span class='dot ok'></span>Risk: Low</div>", unsafe_allow_html=True)
+                                        elif prob < 70:
+                                            st.markdown("<div class='badge'><span class='dot warn'></span>Risk: Medium</div>", unsafe_allow_html=True)
+                                        else:
+                                            st.markdown("<div class='badge'><span class='dot danger'></span>Risk: High</div>", unsafe_allow_html=True)
                             else:
                                 st.error(f"❌ API Error: {r.status_code}")
                         except Exception as e:
@@ -470,8 +465,8 @@ elif page == "📥 Install Extension":
             """)
         with st.expander("🚀 Step 4: Use It"):
             st.markdown("""
-            - Select suspicious text in Gmail/any site → Tooltip pops
-            - 🟢 Green = Safe · 🔴 Red = Phishing
+            - Select suspicious text in Gmail/any site → Tooltip pops  
+            - 🟢 Green = Safe · 🔴 Red = Phishing  
             - Or click the extension icon
             """)
 
