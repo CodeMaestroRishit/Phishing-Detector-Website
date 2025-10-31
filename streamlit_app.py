@@ -628,7 +628,7 @@ elif page == "📄 Privacy":
     st.subheader("📧 Contact Us")
     st.markdown("""
     For privacy concerns or data requests:
-    - **Email:** your-email@example.com
+    - **Email:** rishitguha0824@gmail.com
     - **GitHub Issues:** https://github.com/CodeMaestroRishit/phishing-detector-api/issues
     """)
     
