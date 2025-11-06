@@ -529,7 +529,7 @@ elif page == "📊 About":
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.subheader("🗓️ Project Timeline")
-    st.markdown("- **Sept 2024:** Initial development\n- **Oct 2024:** API deployment on Render\n- **Oct 30, 2024:** Chrome extension launch\n- **Oct 31, 2024:** Chrome Web Store submission\n- **Future:** Firefox, Safari support")
+    st.markdown("- **Sept 2025:** Initial development\n- **Oct 2025:** API deployment on Render\n- **Oct 30, 2025:** Chrome extension launch\n- **Oct 31, 2025:** Chrome Web Store submission\n- **Future:** Firefox, Safari support")
 
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
@@ -654,7 +654,7 @@ elif page == "📄 Privacy":
 st.markdown("---")
 st.markdown(
     "<div style='text-align:center;color:#9aa2b1;padding:1rem 0;'>"
-    "© 2024 • <a href='https://github.com/CodeMaestroRishit/phishing-detector-api'>GitHub</a> • "
+    "© 2025 • <a href='https://github.com/CodeMaestroRishit/phishing-detector-api'>GitHub</a> • "
     "<a href='#' onclick='document.location.href=\"?page=privacy\"'>Privacy Policy</a> • "
     "Built with ❤️ + caffeine"
     "</div>", unsafe_allow_html=True
