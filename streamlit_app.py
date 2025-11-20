@@ -1,661 +1,892 @@
-import json
 import requests
 import streamlit as st
+from datetime import datetime
+from urllib.parse import urlparse
 
-# ---------------- PAGE CONFIG ----------------
+# ============== PAGE CONFIG ==============
 st.set_page_config(
-    page_title="Phishing Detector — NEO Edition",
+    page_title="Phishing Detector NEO",
     page_icon="🛡️",
     layout="wide",
-    initial_sidebar_state="expanded",
 )
 
-# ---------------- NAV ITEMS / SESSION ----------------
-TOP_NAV = ["🏠 Home", "🌐 Test Online", "📥 Install Extension"]   # top bar (3 items)
-NAV_ITEMS = TOP_NAV + ["❓ FAQ", "📊 About", "📄 Privacy"]          # sidebar shows all (ADDED PRIVACY)
-
-if "page" not in st.session_state:
-    st.session_state.page = TOP_NAV[0]
+# ============== SESSION STATE ==============
+if "history" not in st.session_state:
+    st.session_state.history = []  # list of dicts: {type, snippet, prob, verdict, risk, ts}
+if "last_email_result" not in st.session_state:
+    st.session_state.last_email_result = None
+if "last_url_result" not in st.session_state:
+    st.session_state.last_url_result = None
+if "email_text" not in st.session_state:
+    st.session_state.email_text = ""
+if "url_text" not in st.session_state:
+    st.session_state.url_text = ""
 if "confetti" not in st.session_state:
     st.session_state.confetti = False
 
-def set_page(p: str):
-    st.session_state.page = p
-
-def _sync_page():
-    st.session_state.page = st.session_state.nav_choice
-
-def _celebrate():
-    st.session_state.confetti = True
-
-# ---------------- ORGANIZED TOP BAR (3 items) ----------------
-with st.container():
-    st.markdown("<div class='topnav-wrap'><div class='topnav-rail'><div class='topnav-row'>", unsafe_allow_html=True)
-    cols = st.columns(3)
-    for i, item in enumerate(TOP_NAV):
-        emoji, title = item.split(" ", 1)
-        is_active = (st.session_state.page == item)
-        with cols[i]:
-            st.markdown(
-                f"<div class='top-pill {'active' if is_active else ''}'>{emoji} {title}</div>",
-                unsafe_allow_html=True
-            )
-            if st.button(" ", key=f"topnav_btn_{i}", help=item, use_container_width=True):
-                set_page(item)
-                st.rerun()
-    st.markdown("</div></div></div>", unsafe_allow_html=True)
-
-# ---------------- GLOBAL CSS (Desktop + Mobile) ----------------
-st.markdown("""
+# ============== GLOBAL CSS ==============
+st.markdown(
+    """
 <style>
-/* ====== Fonts & Root ====== */
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 
 :root{
-  --bg: #0b0b0f;
-  --card: rgba(255,255,255,0.06);
-  --card-border: rgba(255,255,255,0.15);
-  --text: #f6f7fb;
-  --muted: #b9bed3;
-  --brand1: #7c3aed;
-  --brand2: #22d3ee;
-  --brand3: #f472b6;
-  --ok: #34d399;
-  --warn: #f59e0b;
+  --bg: #020617;
+  --bg-alt: #020617;
+  --card: rgba(15,23,42,0.95);
+  --card-soft: rgba(15,23,42,0.80);
+  --card-border: rgba(148,163,184,0.35);
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --brand1: #22d3ee;
+  --brand2: #0ea5e9;
+  --brand3: #6366f1;
+  --ok: #22c55e;
+  --warn: #eab308;
   --danger: #ef4444;
 }
 
 html, body, [data-testid="stAppViewContainer"] {
-  background: radial-gradient(1200px 600px at -10% 0%, rgba(124,58,237,0.18), transparent 60%),
-              radial-gradient(900px 500px at 110% 10%, rgba(34,211,238,0.18), transparent 60%),
-              linear-gradient(180deg, #0b0b0f 0%, #0b0b0f 100%);
+  background:
+    radial-gradient(900px 600px at -10% 0%, rgba(34,211,238,0.13), transparent 60%),
+    radial-gradient(900px 600px at 110% 0%, rgba(99,102,241,0.13), transparent 60%),
+    linear-gradient(180deg, #020617 0%, #020617 100%);
   color: var(--text);
-  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-section.main > div { max-width: 1200px; margin: 0 auto; }
-
-/* ====== Organized Top Nav (3 items) ====== */
-.topnav-wrap {
-  position: sticky; top: 0; z-index: 999;
-  backdrop-filter: blur(8px);
-  background: linear-gradient(180deg, rgba(11,11,15,.90), rgba(11,11,15,.65));
-  border-bottom: 1px solid rgba(255,255,255,.06);
-  margin: -16px -16px 18px -16px;
-  padding: 10px 0;
-}
-.topnav-rail { max-width: 980px; margin: 0 auto; padding: 0 12px; }
-.topnav-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px; align-items: center;
-}
-.top-pill {
-  display: inline-flex; justify-content: center; align-items: center; gap: 10px;
-  width: 100%; padding: 10px 14px; border-radius: 14px;
-  background: rgba(255,255,255,.07);
-  border: 1px solid rgba(255,255,255,.10);
-  color: #e9ecf2; font-weight: 700; letter-spacing: .1px;
-  transition: transform .08s ease, background .25s ease, border .25s ease, box-shadow .25s ease;
-}
-.top-pill:hover { transform: translateY(-1px); background: rgba(255,255,255,.10); }
-.top-pill.active {
-  background: linear-gradient(92deg, rgba(124,58,237,.28), rgba(34,211,238,.28));
-  border-color: rgba(124,58,237,.55);
-  box-shadow: 0 8px 22px rgba(124,58,237,0.22), 0 0 0 1px rgba(255,255,255,.04) inset;
-  position: relative;
-}
-.top-pill.active::after {
-  content: ""; position: absolute; left: 12%; right: 12%; bottom: -6px; height: 3px;
-  border-radius: 999px;
-  background: linear-gradient(92deg, rgba(124,58,237,.9), rgba(34,211,238,.9));
-  box-shadow: 0 0 12px rgba(124,58,237,.6);
+.block-container {
+  padding-top: 1.2rem;
+  max-width: 1120px;
 }
 
-/* ====== Headings & Gradient Text ====== */
-h1, h2, h3 { font-family: 'Space Grotesk', ui-rounded, system-ui; letter-spacing: 0.2px; }
-h1 { font-size: 2.6rem; font-weight: 800; margin: 0 0 .6rem 0; }
-h2 { font-size: 1.5rem; margin: 1.4rem 0 .8rem 0; }
-.grad { background: linear-gradient(92deg, var(--brand1), var(--brand2), var(--brand3));
-  -webkit-background-clip: text; background-clip: text; color: transparent; }
+h1, h2, h3, h4 {
+  font-family: 'Space Grotesk', system-ui, -apple-system;
+  letter-spacing: 0.02em;
+}
 
-/* ====== Cards ====== */
-.card, .feature-box, .stat-card, .metric-card, .glass, .success-box, .danger-box, .warning-box {
+.hero-title {
+  font-size: 2.6rem;
+  font-weight: 800;
+  margin-bottom: 0.4rem;
+}
+.hero-grad {
+  background: linear-gradient(92deg, var(--brand1), var(--brand2), var(--brand3));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hero-sub {
+  font-size: 0.98rem;
+  color: var(--muted);
+}
+
+/* Cards */
+.card {
   background: var(--card);
+  border-radius: 18px;
   border: 1px solid var(--card-border);
-  border-radius: 16px;
   padding: 18px 20px;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+  backdrop-filter: blur(10px);
+}
+.card-soft {
+  background: var(--card-soft);
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,0.30);
+  padding: 14px 16px;
+}
+.card-success {
+  background: radial-gradient(circle at 0 0, rgba(22,163,74,0.2), transparent 60%),
+              linear-gradient(180deg, rgba(15,23,42,0.96), rgba(15,23,42,0.98));
+  border-radius: 16px;
+  border: 1px solid rgba(22,163,74,0.7);
+  padding: 16px 18px;
+}
+.card-danger {
+  background: radial-gradient(circle at 0 0, rgba(239,68,68,0.22), transparent 60%),
+              linear-gradient(180deg, rgba(15,23,42,0.96), rgba(15,23,42,0.98));
+  border-radius: 16px;
+  border: 1px solid rgba(239,68,68,0.8);
+  padding: 16px 18px;
+}
+.card-warning {
+  background: radial-gradient(circle at 0 0, rgba(234,179,8,0.22), transparent 60%),
+              linear-gradient(180deg, rgba(15,23,42,0.96), rgba(15,23,42,0.98));
+  border-radius: 16px;
+  border: 1px solid rgba(234,179,8,0.8);
+  padding: 16px 18px;
 }
 
-/* Success / Danger / Warning */
-.success-box { border: 1px solid rgba(52,211,153,.35)!important; background: linear-gradient(180deg, rgba(52,211,153,.12), rgba(52,211,153,.06)); }
-.danger-box  { border: 1px solid rgba(239,68,68,.35)!important; background: linear-gradient(180deg, rgba(239,68,68,.12), rgba(239,68,68,.06)); }
-.warning-box { border: 1px solid rgba(245,158,11,.35)!important; background: linear-gradient(180deg, rgba(245,158,11,.12), rgba(245,158,11,.06)); }
-
-/* ====== Badges / Chips ====== */
+/* Badges */
 .badge {
-  display:inline-flex; gap:.5rem; align-items:center;
-  padding:.35rem .7rem; border-radius:999px; font-size:.86rem;
-  background: rgba(255,255,255,0.06); border:1px solid var(--card-border); color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  padding: 0.24rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  background: rgba(15,23,42,0.9);
+  border: 1px solid rgba(148,163,184,0.4);
 }
-.badge .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
-.dot.ok { background: var(--ok); box-shadow: 0 0 10px var(--ok); }
-.dot.warn { background: var(--warn); box-shadow: 0 0 10px var(--warn); }
-.dot.danger { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
+.badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  padding: 0.28rem 0.72rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  background: rgba(15,23,42,1);
+  border: 1px solid rgba(148,163,184,0.55);
+}
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  display: inline-block;
+}
+.dot-ok {
+  background: var(--ok);
+  box-shadow: 0 0 10px rgba(34,197,94,0.8);
+}
+.dot-warn {
+  background: var(--warn);
+  box-shadow: 0 0 10px rgba(234,179,8,0.8);
+}
+.dot-danger {
+  background: var(--danger);
+  box-shadow: 0 0 10px rgba(239,68,68,0.9);
+}
 
-/* ====== Metrics ====== */
-.stat-value { font-size: 1.8rem; font-weight: 800; }
-.stat-label { font-size: .86rem; color: var(--muted); margin-top: .3rem; }
+/* Metrics */
+.metric-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+.metric-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+}
 
-/* ====== Inputs ====== */
+/* Inputs */
 .stTextArea textarea, .stTextInput input {
-  background: rgba(255,255,255,0.06) !important;
-  border: 1px solid rgba(255,255,255,0.14) !important;
+  background: rgba(15,23,42,0.92) !important;
+  border-radius: 14px !important;
+  border: 1px solid rgba(148,163,184,0.6) !important;
   color: var(--text) !important;
-  border-radius: 12px !important;
-  font-size: 1rem !important;
-  padding: .9rem !important;
+  font-size: 0.95rem !important;
+}
+.stTextArea textarea:focus, .stTextInput input:focus {
+  border-color: var(--brand2) !important;
+  box-shadow: 0 0 0 1px rgba(56,189,248,0.6) !important;
 }
 
-/* ====== Buttons ====== */
+/* Buttons */
 .stButton>button, .stLinkButton>a {
-  border-radius: 14px !important;
-  padding: .85rem 1rem !important;
-  border: 1px solid rgba(255,255,255,0.18) !important;
-  background-image: linear-gradient(92deg, rgba(124,58,237,.28), rgba(34,211,238,.28));
+  border-radius: 999px !important;
+  padding: 0.6rem 1.1rem !important;
+  font-weight: 700 !important;
+  border: none !important;
+  font-size: 0.9rem !important;
+  background-image: linear-gradient(92deg, var(--brand1), var(--brand2));
   color: white !important;
-  font-weight: 800 !important;
-  transition: transform .08s ease, box-shadow .2s ease, background .3s ease;
+  box-shadow: 0 12px 30px rgba(37,99,235,0.35);
+  transition: transform 0.08s ease-out, box-shadow 0.12s ease-out, filter 0.12s ease-out;
 }
 .stButton>button:hover, .stLinkButton>a:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(124,58,237,0.25), 0 0 0 1px rgba(255,255,255,0.08) inset;
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow: 0 14px 30px rgba(37,99,235,0.45);
 }
 
-/* ====== Tabs polish ====== */
-[data-baseweb="tab"] { font-family: 'Space Grotesk'; font-weight: 700; letter-spacing:.2px; }
-
-/* ====== Sidebar (desktop/tablet) ====== */
-[data-testid="stSidebar"] {
-  background: radial-gradient(800px 400px at 100% 0%, rgba(124,58,237,.18), transparent 60%),
-              radial-gradient(700px 360px at 0% 0%, rgba(34,211,238,.14), transparent 60%),
-              linear-gradient(180deg, #0b0b0f, #0b0b0f);
-  border-right: 1px solid rgba(255,255,255,.06);
-  padding-top: .5rem;
-}
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p:has(+ div [role="radiogroup"]) { display: none; }
-[data-testid="stSidebar"] [role="radiogroup"] { display: grid; gap: 8px; }
-[data-testid="stSidebar"] [role="radiogroup"] > label {
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 14px; padding: 10px 12px; color: #e9ecf2;
-  display: flex; align-items: center; gap: 10px; cursor: pointer;
-}
-[data-testid="stSidebar"] [role="radiogroup"] > label .emoji {
-  display:inline-flex; align-items:center; justify-content:center;
-  width: 28px; height: 28px; border-radius: 10px;
-  background: linear-gradient(92deg, rgba(124,58,237,.25), rgba(34,211,238,.25));
-  border: 1px solid rgba(255,255,255,.14);
+/* Tabs */
+[data-baseweb="tab"] {
+  font-family: 'Space Grotesk', system-ui;
+  font-weight: 600;
+  font-size: 0.9rem;
 }
 
-/* ====== MOBILE (≤ 720px) ====== */
+/* Tables */
+.dataframe tbody tr td {
+  font-size: 0.8rem;
+}
+
+/* Mobile */
 @media (max-width: 720px) {
-  html, body, [data-testid="stAppViewContainer"] { background: #0b0b0f; }
-  .card, .feature-box, .stat-card, .metric-card, .glass, .success-box, .danger-box, .warning-box {
-    backdrop-filter: none; box-shadow: 0 6px 16px rgba(0,0,0,0.28); padding: 14px 14px;
+  .hero-title {
+    font-size: 2rem;
   }
-  h1 { font-size: 2rem; }
-  h2 { font-size: 1.25rem; }
-  .stat-value { font-size: 1.5rem; }
-  .badge { font-size: .92rem; }
-  .topnav-row {
-    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
-    overflow-x: auto; gap: 8px; padding-bottom: 4px; scrollbar-width: none;
+  .block-container {
+    padding-left: 0.9rem;
+    padding-right: 0.9rem;
   }
-  .topnav-row::-webkit-scrollbar { display: none; }
-  .top-pill { padding: 9px 12px; font-size: .95rem; }
-  [data-testid="stSidebar"] { display: none; }          /* hide sidebar on phones */
-  .block-container { padding-left: 12px; padding-right: 12px; }
 }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
-# ---------------- SIDEBAR (desktop/tablet) ----------------
-with st.sidebar:
-    st.markdown("<h2 style='margin:0;'>🛡️ Phishing Detector</h2>", unsafe_allow_html=True)
-    st.caption("Click-safe, vibe-safe.")
-    st.markdown(
-        "<div class='sidebar-mini'>"
-        "<span class='badge'><span class='dot ok'></span>API Live</span> "
-        "<span class='badge'>Latency &lt;100ms</span>"
-        "</div>",
-        unsafe_allow_html=True
+# ============== SAMPLE INPUTS ==============
+SAMPLE_PHISH_EMAIL = """Subject: Urgent – Verify Your Account Now
+
+Dear Customer,
+
+We noticed unusual login activity on your bank account. To avoid suspension, please verify your identity within 24 hours by clicking the secure link below:
+
+https://secure-bank-login-verification.com/login
+
+Failure to do so will result in permanent account closure.
+
+Best regards,
+Security Team
+"""
+
+SAMPLE_LEGIT_EMAIL = """Subject: Invoice Payment Confirmation
+
+Hi Rishit,
+
+This is a confirmation that we have received your payment for invoice #INV-2025-114. 
+No further action is required from your side.
+
+If you have any questions, reply to this email.
+
+Regards,
+Accounts Team
+"""
+
+SAMPLE_PHISH_URL = "http://secure-login-paypal.com.verify-account-update.security-check.xyz/"
+SAMPLE_LEGIT_URL = "https://www.rbi.org.in/"
+
+
+# ============== CORE PREDICTION HELPERS ==============
+API_EMAIL_ENDPOINT = "https://phishing-detector-api-1.onrender.com/predict"
+API_URL_ENDPOINT = "https://phishing-detector-api-1.onrender.com/predict/url"
+
+
+def risk_bucket(prob: float):
+    """
+    Map 0–100 probability to (risk_label, css_class)
+    """
+    if prob < 30:
+        return "Low", "ok"
+    elif prob < 70:
+        return "Medium", "warn"
+    return "High", "danger"
+
+
+def run_email_prediction(email_text: str):
+    """
+    Wraps the existing email API.
+    Returns dict with keys: prob, is_phishing, verdict, risk_label
+    """
+    r = requests.post(API_EMAIL_ENDPOINT, json={"text": email_text}, timeout=60)
+    if r.status_code != 200:
+        raise RuntimeError(f"API Error: {r.status_code}")
+
+    data = r.json()
+    prob = (data.get("phishing_probability", 0) or 0) * 100
+    is_phishing = data.get("label") == 1
+    verdict = "PHISHING" if is_phishing else "LIKELY SAFE"
+    risk_label, _ = risk_bucket(prob)
+    return {
+        "prob": prob,
+        "is_phishing": is_phishing,
+        "verdict": verdict,
+        "risk": risk_label,
+        "raw": data,
+    }
+
+
+def run_url_prediction(url: str):
+    """
+    Wraps the existing URL API.
+    Returns dict with keys: prob, is_phishing, verdict, risk_label
+    """
+    r = requests.post(API_URL_ENDPOINT, json={"url": url}, timeout=60)
+    if r.status_code != 200:
+        raise RuntimeError(f"API Error: {r.status_code}")
+
+    data = r.json()
+    prob = (data["probabilities"]["phishing"] or 0) * 100
+    is_phishing = data["prediction"] == "phishing"
+    verdict = "SUSPICIOUS LINK" if is_phishing else "URL APPEARS SAFE"
+    risk_label, _ = risk_bucket(prob)
+    return {
+        "prob": prob,
+        "is_phishing": is_phishing,
+        "verdict": verdict,
+        "risk": risk_label,
+        "raw": data,
+    }
+
+
+# ============== FEATURE EXPLANATION HELPERS (HEURISTICS) ==============
+PHISH_KEYWORDS = [
+    "verify", "account", "password", "urgent", "immediately", "suspend",
+    "update your details", "confirm", "limited time", "security alert"
+]
+
+
+def extract_email_features(text: str):
+    text_lower = text.lower()
+    indicators = []
+
+    if any(k in text_lower for k in PHISH_KEYWORDS):
+        indicators.append("Contains urgency / account-related keywords")
+    if "http://" in text_lower or "https://" in text_lower:
+        indicators.append("Contains embedded links")
+    if "@" in text_lower and "from:" in text_lower:
+        indicators.append("Includes explicit sender line")
+    if "bank" in text_lower or "paypal" in text_lower or "wallet" in text_lower:
+        indicators.append("Mentions financial institutions")
+    if "24 hours" in text_lower or "48 hours" in text_lower:
+        indicators.append("Uses strict time pressure")
+    if "dear customer" in text_lower or "dear user" in text_lower:
+        indicators.append("Uses generic greeting instead of your name")
+
+    if not indicators:
+        indicators.append("No obvious phishing patterns detected from simple keyword rules")
+
+    return indicators
+
+
+def extract_url_features(url: str):
+    indicators = []
+    parsed = urlparse(url)
+
+    host = parsed.netloc.lower()
+    scheme = parsed.scheme.lower()
+
+    if scheme == "http":
+        indicators.append("Uses unencrypted HTTP")
+    if host.count(".") >= 3:
+        indicators.append("Has a long / deeply nested subdomain")
+    if any(c.isdigit() for c in host) and host.replace(".", "").replace("-", "").isdigit():
+        indicators.append("Domain looks like an IP or numeric host")
+    if "-" in host:
+        indicators.append("Domain uses hyphens (common in spoofed brands)")
+    if "paypal" in host or "bank" in host or "login" in host or "secure" in host:
+        indicators.append("Domain name tries to look like a login/financial site")
+
+    if not indicators:
+        indicators.append("No obvious URL red flags detected via simple heuristics")
+
+    return indicators
+
+
+def add_to_history(item_type: str, text_or_url: str, prob: float, verdict: str, risk: str):
+    snippet = text_or_url.strip().replace("\n", " ")
+    if len(snippet) > 80:
+        snippet = snippet[:77] + "…"
+
+    st.session_state.history.insert(
+        0,
+        {
+            "type": item_type,
+            "snippet": snippet,
+            "probability": round(prob, 1),
+            "verdict": verdict,
+            "risk": risk,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        },
     )
-    st.radio(
-        label="Navigation",
-        options= NAV_ITEMS,
-        index= NAV_ITEMS.index(st.session_state.page) if st.session_state.page in NAV_ITEMS else 0,
-        key="nav_choice",
-        on_change=_sync_page,
-        format_func=lambda x: x,
-    )
+    # keep history small
+    if len(st.session_state.history) > 30:
+        st.session_state.history = st.session_state.history[:30]
 
-# ---------------- CELEBRATION ----------------
-if st.session_state.get("confetti"):
-    st.balloons()
-    st.session_state.confetti = False
 
-# ---------------- CURRENT PAGE ----------------
-
-page = st.session_state.page
-
-# ---------------- HOME ----------------
-if page == "🏠 Home":
-    st.markdown("<h1>Phishing Detector <span class='grad'>NEO</span> Edition</h1>", unsafe_allow_html=True)
-    st.markdown("### ⚡ AI-powered, privacy-first, and ridiculously fast")
-
-    st.markdown(
-        "<div class='card'>"
-        "<div class='badge'><span class='dot ok'></span>Real-time detection</div> "
-        "<div class='badge'><span class='dot warn'></span>No tracking</div> "
-        "<div class='badge'><span class='dot ok'></span>Open-source</div>"
-        "</div>", unsafe_allow_html=True
-    )
-
-    st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        if st.button("🌐 Try Online", use_container_width=True):
-            set_page("🌐 Test Online"); st.rerun()
-    with c2:
-        if st.button("🧩 Get Extension", use_container_width=True):
-            set_page("📥 Install Extension"); st.rerun()
-    with c3:
-        st.link_button("🐙 GitHub", "https://github.com/CodeMaestroRishit/phishing-detector-api", use_container_width=True)
-
-    st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
-
-    s1, s2, s3, s4 = st.columns(4)
-    with s1:
-        st.markdown("<div class='stat-card'><div class='stat-value'>94.2%</div><div class='stat-label'>Accuracy</div></div>", unsafe_allow_html=True)
-    with s2:
-        st.markdown("<div class='stat-card'><div class='stat-value'>&lt;100ms</div><div class='stat-label'>Response Time</div></div>", unsafe_allow_html=True)
-    with s3:
-        st.markdown("<div class='stat-card'><div class='stat-value'>10K+</div><div class='stat-label'>Training Samples</div></div>", unsafe_allow_html=True)
-    with s4:
-        st.markdown("<div class='stat-card'><div class='stat-value'>$0</div><div class='stat-label'>Free Forever</div></div>", unsafe_allow_html=True)
-
-    st.markdown("## ✨ Features")
-    f1, f2, f3 = st.columns(3)
-    with f1:
-        st.markdown("<div class='feature-box'><h3>⚡ Fast</h3><p>Instant vibes check for sus emails and links.</p></div>", unsafe_allow_html=True)
-    with f2:
-        st.markdown("<div class='feature-box'><h3>🕶️ Private</h3><p>No accounts. No logs. No ads.</p></div>", unsafe_allow_html=True)
-    with f3:
-        st.markdown("<div class='feature-box'><h3>🤖 Smart</h3><p>Dual models for email & URL detection.</p></div>", unsafe_allow_html=True)
-
-# ---------------- TEST ONLINE ----------------
-elif page == "🌐 Test Online":
-    st.markdown("<h1>🔎 Test <span class='grad'>Phishing Detector</span></h1>", unsafe_allow_html=True)
-    st.caption("Paste the sus stuff. We'll do the forensic dance.")
-
-    tab1, tab2 = st.tabs(["📧 Email Analysis", "🔗 URL Analysis"])
-
-    # ---- Email Analysis ----
-    with tab1:
-        st.subheader("📧 Analyze Email Content")
-        st.markdown("<span class='badge'><span class='dot warn'></span>Tip: include subject + sender line</span>", unsafe_allow_html=True)
-
-        email_text = st.text_area(
-            "Email content:",
-            height=220,
-            placeholder="Subject: Account Alert\nFrom: service@yourbank-secure.com\n\nDear user, please verify your account by clicking the link below...",
-            label_visibility="collapsed"
+# ============== HEADER RENDER ==============
+def render_header():
+    col1, col2 = st.columns([2.3, 1.7])
+    with col1:
+        st.markdown(
+            """
+<div class="card" style="padding: 18px 20px; margin-bottom: 0.8rem;">
+  <div class="hero-title">
+    Phishing Detector <span class="hero-grad">NEO</span>
+  </div>
+  <div class="hero-sub">
+    AI-powered phishing and scam detection for emails and URLs — designed for humans, not just security teams.
+  </div>
+  <div style="margin-top: 0.7rem; display:flex; flex-wrap:wrap; gap:0.4rem;">
+    <span class="badge-pill"><span class="dot dot-ok"></span>Real-time API</span>
+    <span class="badge-pill"><span class="dot dot-ok"></span>No tracking or ads</span>
+    <span class="badge-pill"><span class="dot dot-warn"></span>Chrome extension ready</span>
+  </div>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
+    with col2:
+        st.markdown(
+            """
+<div class="card-soft">
+  <div class="metric-label">CURRENT BUILD</div>
+  <div class="metric-value">NEO 1.0</div>
+  <div style="margin-top:0.3rem; font-size:0.8rem; color:#9ca3af;">
+    Dual-detector pipeline for email text and raw URLs, served via FastAPI backend.
+  </div>
+  <hr style="border-color:rgba(148,163,184,0.4); margin:0.5rem 0;">
+  <div style="display:flex; gap:0.8rem; font-size:0.8rem;">
+    <div>
+      <div class="metric-label">EMAIL ACC</div>
+      <div class="metric-value">94.2%</div>
+    </div>
+    <div>
+      <div class="metric-label">URL ACC</div>
+      <div class="metric-value">91.7%</div>
+    </div>
+  </div>
+</div>
+""",
+            unsafe_allow_html=True,
         )
 
-        # wide-area placeholder for results
-        email_results = st.container()
 
-        c1, _ = st.columns([1,5])
-        with c1:
-            if st.button("🔍 Analyze", use_container_width=True, key="email_btn"):
-                if not email_text:
-                    st.error("❌ Please enter email content")
-                elif len(email_text) < 30:
-                    st.warning("⚠️ Please enter at least 30 characters")
-                else:
-                    with st.spinner("🔄 Analyzing…"):
-                        try:
-                            r = requests.post(
-                                "https://phishing-detector-api-1.onrender.com/predict",
-                                json={"text": email_text},
-                                timeout=60
-                            )
-                            if r.status_code == 200:
-                                data = r.json()
-                                prob = (data.get("phishing_probability", 0) or 0) * 100
-                                is_phishing = data.get("label") == 1
+# ============== SCAN TAB ==============
+def render_scan_tab():
+    st.markdown("#### 🛡️ Live Scan")
+    st.caption("Paste suspicious content or a link. The detector will score it and highlight the risk.")
 
-                                st.success("✅ Analysis Complete")
-                                _celebrate()
+    email_col, url_col = st.columns(2)
 
-                                # render results in wide area (not inside c1)
-                                with email_results:
-                                    colA, colB = st.columns([2,1])
-                                    with colA:
-                                        if is_phishing:
-                                            st.markdown("""
-                                            <div class="danger-box">
-                                              <h3>🚨 PHISHING DETECTED</h3>
-                                              <p>This email shows strong phishing signals.</p>
-                                              <p><b>Do not</b> click links or download attachments.</p>
-                                            </div>""", unsafe_allow_html=True)
-                                        else:
-                                            st.markdown("""
-                                            <div class="success-box">
-                                              <h3>🟢 LIKELY SAFE</h3>
-                                              <p>No obvious phishing indicators found.</p>
-                                              <p><b>Still verify</b> the sender before action.</p>
-                                            </div>""", unsafe_allow_html=True)
-                                    with colB:
-                                        st.metric("Phishing Probability", f"{prob:.1f}%")
-                                        if prob < 30:
-                                            st.markdown("<div class='badge'><span class='dot ok'></span>Risk: Low</div>", unsafe_allow_html=True)
-                                        elif prob < 70:
-                                            st.markdown("<div class='badge'><span class='dot warn'></span>Risk: Medium</div>", unsafe_allow_html=True)
-                                        else:
-                                            st.markdown("<div class='badge'><span class='dot danger'></span>Risk: High</div>", unsafe_allow_html=True)
+    # ----- EMAIL PANEL -----
+    with email_col:
+        st.markdown("##### 📧 Email content")
+        btn_col1, btn_col2 = st.columns(2)
+        with btn_col1:
+            if st.button("Try Sample Phishing Email", key="sample_phish_email"):
+                st.session_state.email_text = SAMPLE_PHISH_EMAIL
+        with btn_col2:
+            if st.button("Try Sample Legit Email", key="sample_legit_email"):
+                st.session_state.email_text = SAMPLE_LEGIT_EMAIL
 
-                            elif r.status_code == 503:
-                                st.error("⏱️ API cold start — try again in a bit.")
-                            else:
-                                st.error(f"❌ API Error: {r.status_code}")
-                        except requests.exceptions.Timeout:
-                            st.error("⏱️ Request timed out. Try again shortly.")
-                        except Exception as e:
-                            st.error(f"❌ Error: {str(e)}")
+        email_text = st.text_area(
+            label="Email text",
+            key="email_text",
+            height=220,
+            placeholder=(
+                "Paste full email here – subject, sender, and body.\n"
+                "Example:\n"
+                "Subject: Account Alert\nFrom: service@yourbank-secure.com\n\nDear user, ..."
+            ),
+            label_visibility="collapsed",
+        )
 
-    # ---- URL Analysis ----
-    with tab2:
-        st.subheader("🔗 Analyze URL")
-        st.markdown("<span class='badge'><span class='dot warn'></span>Must start with http:// or https://</span>", unsafe_allow_html=True)
+        run_email = st.button("🔍 Run Phishing Scan (Email)", key="scan_email", use_container_width=True)
+        email_result_container = st.container()
 
-        url = st.text_input("URL:", placeholder="https://example.com", label_visibility="collapsed")
+        if run_email:
+            if not email_text or len(email_text.strip()) < 30:
+                st.warning("Enter at least a couple of lines so the model has something to inspect.")
+            else:
+                with st.spinner("Analyzing email content..."):
+                    try:
+                        res = run_email_prediction(email_text)
+                        st.session_state.last_email_result = {
+                            **res,
+                            "input": email_text,
+                        }
+                        add_to_history("Email", email_text, res["prob"], res["verdict"], res["risk"])
+                        st.session_state.confetti = not res["is_phishing"]  # confetti only for good news
 
-        url_results = st.container()
+                        with email_result_container:
+                            verdict_block(res, item_type="email")
 
-        c1, _ = st.columns([1,5])
-        with c1:
-            if st.button("🔍 Analyze", use_container_width=True, key="url_btn"):
-                if not url:
-                    st.error("❌ Please enter a URL")
-                elif not url.startswith(("http://", "https://")):
-                    st.error("❌ URL must start with http:// or https://")
-                else:
-                    with st.spinner("🔄 Analyzing…"):
-                        try:
-                            r = requests.post(
-                                "https://phishing-detector-api-1.onrender.com/predict/url",
-                                json={"url": url},
-                                timeout=60
-                            )
-                            if r.status_code == 200:
-                                data = r.json()
-                                prob = (data["probabilities"]["phishing"] or 0) * 100
-                                is_phishing = data["prediction"] == "phishing"
+                    except requests.exceptions.Timeout:
+                        st.error("Backend took too long to respond. Try once more in a few seconds.")
+                    except Exception as e:
+                        st.error(f"Something went wrong while calling the API: {e}")
 
-                                st.success("✅ Analysis Complete")
-                                _celebrate()
+    # ----- URL PANEL -----
+    with url_col:
+        st.markdown("##### 🔗 URL")
+        btn_col1, btn_col2 = st.columns(2)
+        with btn_col1:
+            if st.button("Sample Phishing URL", key="sample_phish_url"):
+                st.session_state.url_text = SAMPLE_PHISH_URL
+        with btn_col2:
+            if st.button("Sample Legit URL", key="sample_legit_url"):
+                st.session_state.url_text = SAMPLE_LEGIT_URL
 
-                                with url_results:
-                                    colA, colB = st.columns([2,1])
-                                    with colA:
-                                        if is_phishing:
-                                            st.markdown("""
-                                            <div class="danger-box">
-                                              <h3>⚠️ SUSPICIOUS LINK</h3>
-                                              <p>This URL looks phishy.</p>
-                                              <p><b>Avoid</b> opening or entering credentials.</p>
-                                            </div>""", unsafe_allow_html=True)
-                                        else:
-                                            st.markdown("""
-                                            <div class="success-box">
-                                              <h3>🟢 URL APPEARS SAFE</h3>
-                                              <p>No obvious phishing patterns detected.</p>
-                                            </div>""", unsafe_allow_html=True)
-                                    with colB:
-                                        st.metric("Phishing Probability", f"{prob:.1f}%")
-                                        if prob < 30:
-                                            st.markdown("<div class='badge'><span class='dot ok'></span>Risk: Low</div>", unsafe_allow_html=True)
-                                        elif prob < 70:
-                                            st.markdown("<div class='badge'><span class='dot warn'></span>Risk: Medium</div>", unsafe_allow_html=True)
-                                        else:
-                                            st.markdown("<div class='badge'><span class='dot danger'></span>Risk: High</div>", unsafe_allow_html=True)
-                            else:
-                                st.error(f"❌ API Error: {r.status_code}")
-                        except Exception as e:
-                            st.error(f"❌ Error: {str(e)}")
+        url_text = st.text_input(
+            label="URL input",
+            key="url_text",
+            placeholder="https://example.com or http://something-weird.xyz/login",
+            label_visibility="collapsed",
+        )
 
-# ---------------- INSTALL EXTENSION ----------------
-elif page == "📥 Install Extension":
-    st.markdown("<h1>🧩 Install <span class='grad'>Chrome Extension</span></h1>", unsafe_allow_html=True)
-    st.info("🎉 Coming soon to Chrome Web Store. Manual install below.")
+        run_url = st.button("🔍 Run Phishing Scan (URL)", key="scan_url", use_container_width=True)
+        url_result_container = st.container()
 
-    col1, col2 = st.columns([1.5,1])
-    with col1:
-        st.subheader("📦 Installation Steps")
-        with st.expander("📖 Step 1: Download Extension", expanded=True):
-            st.markdown("""
-            1. Open **[GitHub Repository](https://github.com/CodeMaestroRishit/phishing-detector-api)**
-            2. Click **Code → Download ZIP**
-            3. Extract, open the **`extension`** folder
-            """)
-        with st.expander("🔧 Step 2: Enable Developer Mode"):
-            st.markdown("""
-            1. Open **Chrome**
-            2. Go to `chrome://extensions/`
-            3. Toggle **Developer mode**
-            """)
-        with st.expander("📤 Step 3: Load Unpacked"):
-            st.markdown("""
-            1. Click **Load unpacked**
-            2. Select the **`extension`** folder
-            3. Done ✅
-            """)
-        with st.expander("🚀 Step 4: Use It"):
-            st.markdown("""
-            - Select suspicious text in Gmail/any site → Tooltip pops  
-            - 🟢 Green = Safe · 🔴 Red = Phishing  
-            - Or click the extension icon
-            """)
+        if run_url:
+            if not url_text.strip():
+                st.warning("Paste a URL first.")
+            elif not url_text.strip().startswith(("http://", "https://")):
+                st.error("URL must start with http:// or https:// for proper analysis.")
+            else:
+                with st.spinner("Analyzing URL..."):
+                    try:
+                        res = run_url_prediction(url_text.strip())
+                        st.session_state.last_url_result = {
+                            **res,
+                            "input": url_text.strip(),
+                        }
+                        add_to_history("URL", url_text.strip(), res["prob"], res["verdict"], res["risk"])
+                        st.session_state.confetti = not res["is_phishing"]
 
-    with col2:
-        st.subheader("✨ Features")
-        st.markdown("""
-        - ✅ **Auto detection** on select  
-        - 🌍 **Works everywhere** (Gmail, Outlook, web)  
-        - ⚡ **One-click analysis**  
-        - 🕶️ **No data collection**  
-        - 🧪 **Open source**  
-        - 💸 **Always free**
-        """)
-        st.link_button("🐙 View on GitHub", "https://github.com/CodeMaestroRishit/phishing-detector-api", use_container_width=True)
+                        with url_result_container:
+                            verdict_block(res, item_type="url")
 
-    st.divider()
-    st.subheader("🐛 Troubleshooting")
-    with st.expander("Icon missing"):
-        st.markdown("- Reload page · Restart Chrome · Ensure `extension` folder selected")
-    with st.expander("'manifest.json' not found"):
-        st.markdown("- Load the **inner** `extension` folder containing manifest + JS/HTML files")
-    with st.expander("Tooltip not showing"):
-        st.markdown("- Reload page · Ensure enabled in `chrome://extensions/` · Check DevTools Console")
+                    except requests.exceptions.Timeout:
+                        st.error("Backend took too long to respond. Try once more in a few seconds.")
+                    except Exception as e:
+                        st.error(f"Something went wrong while calling the API: {e}")
 
-# ---------------- FAQ ----------------
-elif page == "❓ FAQ":
-    st.markdown("<h1>❓ FAQ</h1>", unsafe_allow_html=True)
-    with st.expander("What is phishing?"):
-        st.markdown("Tricking you into sharing sensitive info by pretending to be someone legit.")
-    with st.expander("How accurate is it?"):
-        st.markdown("**94.2%** on test data across 10k+ samples. Still verify senders—no AI is perfect.")
-    with st.expander("Is my data safe?"):
-        st.markdown("- HTTPS, no storage, no tracking, open source.")
-    with st.expander("Offline?"):
-        st.markdown("Needs internet to query the API.")
-    with st.expander("Firefox/Safari?"):
-        st.markdown("Chrome first. Others later.")
-    with st.expander("Free?"):
-        st.markdown("Forever free. No ads.")
-    with st.expander("Report a bug / contribute?"):
-        st.markdown("[Open an issue](https://github.com/CodeMaestroRishit/phishing-detector-api/issues) · PRs welcome!")
+    if st.session_state.confetti:
+        st.balloons()
+        st.session_state.confetti = False
 
-# ---------------- ABOUT ----------------
-elif page == "📊 About":
-    st.markdown("<h1>📊 About</h1>", unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    with c1:
-        st.subheader("🎯 Mission")
-        st.markdown("Make phishing detection accessible to everyone.")
-        st.subheader("🧱 Technology Stack")
-        st.markdown("- **Backend:** FastAPI\n- **ML Models:** scikit-learn\n- **Frontend:** Chrome Extension API\n- **Website:** Streamlit\n- **Hosting:** Render")
-    with c2:
-        st.subheader("📈 Model Performance")
-        st.metric("Email Model Accuracy", "94.2%", "on test data")
-        st.metric("URL Model Accuracy", "91.7%", "on test data")
-        st.metric("Combined Average", "93.5%", "accuracy")
-        st.subheader("📚 Training Data")
-        st.markdown("- **10,000+** email samples\n- **5,000+** URLs analyzed\n- **2 years** of research\n- Real-world phishing examples")
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.subheader("🗓️ Project Timeline")
-    st.markdown("- **Sept 2025:** Initial development\n- **Oct 2025:** API deployment on Render\n- **Oct 30, 2025:** Chrome extension launch\n- **Oct 31, 2025:** Chrome Web Store submission\n- **Future:** Firefox, Safari support")
+def verdict_block(res_dict, item_type: str):
+    prob = res_dict["prob"]
+    is_phishing = res_dict["is_phishing"]
+    verdict = res_dict["verdict"]
+    risk_label, risk_class = risk_bucket(prob)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    left, right = st.columns([2, 1])
+    with left:
+        if is_phishing and risk_label == "High":
+            st.markdown(
+                """
+<div class="card-danger">
+  <h4>🚨 PHISHING DETECTED</h4>
+  <p style="font-size:0.9rem;">
+    This content shows strong phishing patterns. Treat it as unsafe.
+    Do <b>not</b> click links, share OTPs, or enter credentials.
+  </p>
+</div>
+""",
+                unsafe_allow_html=True,
+            )
+        elif is_phishing:
+            st.markdown(
+                """
+<div class="card-warning">
+  <h4>⚠️ Suspicious</h4>
+  <p style="font-size:0.9rem;">
+    The model thinks this is likely phishing. Double-check the sender, domain,
+    and any links before interacting with it.
+  </p>
+</div>
+""",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                """
+<div class="card-success">
+  <h4>🟢 Likely Safe</h4>
+  <p style="font-size:0.9rem;">
+    The detector did not find strong phishing indicators. Still follow basic hygiene:
+    check the sender address and avoid clicking unexpected links.
+  </p>
+</div>
+""",
+                unsafe_allow_html=True,
+            )
+
+    with right:
+        st.metric("Phishing probability", f"{prob:.1f}%")
+        st.progress(min(int(prob), 100) / 100.0)
+        badge_html = f"""
+<span class="badge-pill" style="margin-top:0.4rem; display:inline-flex;">
+  <span class="dot dot-{risk_class}"></span>
+  Risk: {risk_label}
+</span>
+"""
+        st.markdown(badge_html, unsafe_allow_html=True)
+
+
+# ============== ANALYSIS TAB ==============
+def render_analysis_tab():
+    st.markdown("#### 🧬 Why did it get this verdict?")
+    st.caption("Simple feature-level explanation to help judges see how the detector thinks.")
+
+    # choose which last result to analyze
+    options = []
+    if st.session_state.last_email_result is not None:
+        options.append("Last Email Scan")
+    if st.session_state.last_url_result is not None:
+        options.append("Last URL Scan")
+
+    if not options:
+        st.info("Run at least one email or URL scan first. The model explanation will show up here.")
+        return
+
+    choice = st.selectbox("Select a scan to inspect", options, index=0)
+
+    if choice == "Last Email Scan":
+        res = st.session_state.last_email_result
+        text = res["input"]
+        item_type = "email"
+    else:
+        res = st.session_state.last_url_result
+        text = res["input"]
+        item_type = "url"
+
+    prob = res["prob"]
+    verdict = res["verdict"]
+    risk_label, risk_class = risk_bucket(prob)
+
+    top_left, top_right = st.columns([2, 1])
+    with top_left:
+        st.markdown(
+            f"""
+<div class="card">
+  <div style="font-size:0.8rem; color:#9ca3af; text-transform:uppercase; letter-spacing:0.12em; margin-bottom:0.1rem;">
+    MODEL VERDICT
+  </div>
+  <div style="font-size:1.2rem; font-weight:700;">{verdict}</div>
+  <div style="margin-top:0.3rem; font-size:0.85rem; color:#9ca3af;">
+    Risk bucket: <b>{risk_label}</b> based on phishing probability.
+  </div>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
+    with top_right:
+        st.metric("Phishing probability", f"{prob:.1f}%")
+        st.progress(min(int(prob), 100) / 100.0)
+        st.markdown(
+            f"""
+<span class="badge-pill" style="margin-top:0.4rem; display:inline-flex;">
+  <span class="dot dot-{risk_class}"></span>
+  Risk: {risk_label}
+</span>
+""",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("##### 🔍 Key indicators the app highlights")
+
+    if item_type == "email":
+        indicators = extract_email_features(text)
+    else:
+        indicators = extract_url_features(text)
+
+    for idx, ind in enumerate(indicators, start=1):
+        st.markdown(f"- {ind}")
+
+    st.markdown("##### 🧾 Raw content preview")
+    with st.expander("Show analyzed content", expanded=False):
+        st.code(text, language="text")
+
+
+# ============== HISTORY TAB ==============
+def render_history_tab():
+    st.markdown("#### 🕒 Recent scans")
+    st.caption("Lightweight timeline so judges can see how consistent the model is across different inputs.")
+
+    history = st.session_state.history
+    if not history:
+        st.info("No scans yet. Run a few examples on the Scan tab first.")
+        return
+
+    # Simple visual timeline-style list
+    for idx, item in enumerate(history[:15], start=1):
+        risk = item["risk"]
+        risk_class = "ok" if risk == "Low" else ("warn" if risk == "Medium" else "danger")
+
+        st.markdown(
+            f"""
+<div class="card-soft" style="margin-bottom:0.4rem;">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.4rem;">
+    <div>
+      <div style="font-size:0.78rem; color:#9ca3af;">#{idx} · {item['type']}</div>
+      <div style="font-size:0.9rem; margin-top:0.15rem;">{item['snippet']}</div>
+      <div style="margin-top:0.25rem; font-size:0.78rem; color:#64748b;">{item['timestamp']}</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:0.9rem; font-weight:700;">{item['verdict']}</div>
+      <div style="font-size:0.78rem; color:#9ca3af;">{item['probability']}% phishing</div>
+      <div style="margin-top:0.25rem;">
+        <span class="badge-pill">
+          <span class="dot dot-{risk_class}"></span>
+          {risk} risk
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
+
+
+# ============== ABOUT MODEL TAB ==============
+def render_about_tab():
+    st.markdown("#### 📊 Under the hood")
+    st.caption("High-level architecture for judges who care about how this actually works.")
+
     col1, col2 = st.columns(2)
     with col1:
-        st.link_button("GitHub Repository", "https://github.com/CodeMaestroRishit/phishing-detector-api", use_container_width=True)
+        st.markdown(
+            """
+<div class="card">
+  <h4>⚙️ Architecture</h4>
+  <ul style="font-size:0.9rem; color:#e5e7eb;">
+    <li><b>Frontend:</b> Streamlit app for web + mobile layouts</li>
+    <li><b>Backend:</b> FastAPI microservice deployed on Render</li>
+    <li><b>Models:</b> scikit-learn based classifiers trained separately for email text and URLs</li>
+    <li><b>Communication:</b> JSON over HTTPS, stateless prediction endpoints</li>
+  </ul>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
     with col2:
-        st.link_button("Report Issue", "https://github.com/CodeMaestroRishit/phishing-detector-api/issues", use_container_width=True)
+        st.markdown(
+            """
+<div class="card">
+  <h4>📈 Model signals</h4>
+  <ul style="font-size:0.9rem; color:#e5e7eb;">
+    <li>Token and n-gram patterns from email subject + body</li>
+    <li>Presence of urgency / threat phrases</li>
+    <li>Domain / URL structure, length, and token patterns</li>
+    <li>Host and path features for links embedded in text</li>
+  </ul>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("**License:** MIT  \n**Support:** Open an issue on GitHub")
+    st.markdown("##### 🧪 Training snapshot")
+    col3, col4, col5 = st.columns(3)
+    with col3:
+        st.metric("Email model accuracy", "94.2%")
+    with col4:
+        st.metric("URL model accuracy", "91.7%")
+    with col5:
+        st.metric("Combined effective", "93.5%")
 
-# ============ PRIVACY POLICY PAGE (NEW) ============
-elif page == "📄 Privacy":
-    st.markdown("<h1>📄 Privacy Policy</h1>", unsafe_allow_html=True)
-    st.markdown("**Last Updated:** November 1, 2025")
-    
-    st.divider()
-    
-    st.subheader("🎯 Introduction")
-    st.markdown("""
-    Phishing Detector is committed to protecting your privacy. This Privacy Policy explains how we collect, 
-    use, and protect information when you use our Chrome extension and website.
-    """)
-    
-    st.subheader("📊 What Information We Collect")
-    
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown("### ✅ Information You Provide:")
-        st.markdown("""
-        - **Selected Text:** When you select text and use the extension, it's sent to our API for analysis
-        - **Analysis Results:** We display phishing probability scores
-        """)
-    
-    with c2:
-        st.markdown("### ❌ What We DO NOT Collect:")
-        st.markdown("""
-        - Your personal info (name, email, address)
-        - Browsing history
-        - Cookies or tracking data
-        - Device information
-        - Location data
-        - User profiles
-        """)
-    
-    st.divider()
-    
-    st.subheader("🔧 How We Use Information")
-    st.markdown("""
-    - **Phishing Detection:** Analyzing content using ML models
-    - **Displaying Results:** Showing if content is likely phishing or safe
-    - **Model Improvement:** Aggregated, anonymized data only (optional)
-    """)
-    
-    st.divider()
-    
-    st.subheader("💾 Data Storage & Retention")
-    st.markdown("""
-    - **Temporary Processing:** Text processed immediately for analysis
-    - **No Permanent Storage:** We do NOT store your analyzed text
-    - **Instant Deletion:** Results deleted after being displayed
-    - **No Logs:** No permanent records of your queries
-    """)
-    
-    st.divider()
-    
-    st.subheader("🔒 Data Security")
-    st.markdown("""
-    - ✅ HTTPS encryption for all communication
-    - ✅ Secure, managed infrastructure
-    - ✅ No third-party data sharing
-    - ✅ No advertising or data selling
-    """)
-    
-    st.divider()
-    
-    st.subheader("👥 Data Sharing")
-    st.markdown("""
-    - **We NEVER share** your data with third parties
-    - **We NEVER sell** your data
-    - **We do NOT use** your data for marketing
-    - **Your data stays** between you and our servers
-    """)
-    
-    st.divider()
-    
-    st.subheader("✋ Your Rights")
-    st.markdown("""
-    - **Disable:** Uninstall the extension anytime
-    - **Request Deletion:** Ask for your data to be removed
-    - **Access:** Understand your usage data
-    """)
-    
-    st.divider()
-    
-    st.subheader("📧 Contact Us")
-    st.markdown("""
-    For privacy concerns or data requests:
-    - **Email:** rishitguha0824@gmail.com
-    - **GitHub Issues:** https://github.com/CodeMaestroRishit/phishing-detector-api/issues
-    """)
-    
-    st.divider()
-    
-    st.subheader("⚖️ Legal Compliance")
-    st.markdown("""
-    This extension complies with:
-    - Chrome Web Store Privacy Policy
-    - GDPR (General Data Protection Regulation)
-    - CCPA (California Consumer Privacy Act)
-    """)
-    
-    st.divider()
-    
-    st.markdown("""
-    <div class="card" style="text-align: center; padding: 20px;">
-    <p><strong>Your privacy is our priority. We take data protection seriously.</strong></p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("##### 🔐 Privacy philosophy")
+    st.markdown(
+        """
+- Text and URLs are sent over HTTPS to the API only for scoring.
+- No user identity, cookies, or long-term logs are stored.
+- The extension and app follow a strict “no tracking / no ads” rule.
+"""
+    )
 
-# ---------------- FOOTER ----------------
+    st.markdown("##### 🧱 Tech stack")
+    st.markdown(
+        """
+- **Backend:** FastAPI, Python, scikit-learn  
+- **Frontend:** Streamlit, Chrome Extension  
+- **Hosting:** Render (API), any Streamlit-compatible host for this UI  
+"""
+    )
+
+
+# ============== EXTENSION & FAQ TAB ==============
+def render_extension_tab():
+    st.markdown("#### 🧩 Chrome extension + FAQ")
+    st.caption("Judges will want to know how this jumps from demo to real-world usage.")
+
+    col1, col2 = st.columns([1.5, 1])
+    with col1:
+        st.markdown("##### 🧩 Install Chrome extension (manual dev build)")
+        with st.expander("Step 1 · Download", expanded=True):
+            st.markdown(
+                """
+1. Open the **GitHub repo**:  
+   https://github.com/CodeMaestroRishit/phishing-detector-api  
+2. Click **Code → Download ZIP**  
+3. Extract and open the `extension` folder
+"""
+            )
+        with st.expander("Step 2 · Enable Developer Mode"):
+            st.markdown(
+                """
+1. Open Chrome and go to `chrome://extensions/`  
+2. Toggle **Developer mode** on the top right
+"""
+            )
+        with st.expander("Step 3 · Load unpacked"):
+            st.markdown(
+                """
+1. Click **Load unpacked**  
+2. Select the `extension` folder  
+3. The NEO icon should appear next to the address bar
+"""
+            )
+        with st.expander("Step 4 · Use it"):
+            st.markdown(
+                """
+- Highlight text in Gmail / any page  
+- Click the tooltip or extension icon  
+- Get instant risk verdict inside the browser
+"""
+            )
+    with col2:
+        st.markdown("##### ❓ Quick FAQ")
+        with st.expander("What is phishing?"):
+            st.markdown("Tricking users into revealing sensitive info by pretending to be trustworthy.")
+        with st.expander("Is it accurate?"):
+            st.markdown(
+                "Around **94%** on test data for emails and **92%** for URLs. "
+                "Still, users should combine it with basic common sense."
+            )
+        with st.expander("What data do you store?"):
+            st.markdown("For the demo: none. No personal data, no tracking, no cookies.")
+        with st.expander("Can this go to production?"):
+            st.markdown(
+                "Yes. The same FastAPI backend can be wired into email gateways, "
+                "proxy filters, or SIEM dashboards."
+            )
+
+
+# ============== MAIN APP ==============
+render_header()
+
+tabs = st.tabs(
+    [
+        "🛡️ Scan",
+        "🧬 Analysis",
+        "🕒 History / Logs",
+        "📊 About Model",
+        "🧩 Extension & FAQ",
+    ]
+)
+
+with tabs[0]:
+    render_scan_tab()
+
+with tabs[1]:
+    render_analysis_tab()
+
+with tabs[2]:
+    render_history_tab()
+
+with tabs[3]:
+    render_about_tab()
+
+with tabs[4]:
+    render_extension_tab()
+
+# ============== FOOTER ==============
 st.markdown("---")
 st.markdown(
-    "<div style='text-align:center;color:#9aa2b1;padding:1rem 0;'>"
-    "© 2025 • <a href='https://github.com/CodeMaestroRishit/phishing-detector-api'>GitHub</a> • "
-    "<a href='#' onclick='document.location.href=\"?page=privacy\"'>Privacy Policy</a> • "
-    "Built with ❤️ + caffeine"
-    "</div>", unsafe_allow_html=True
+    """
+<div style="text-align:center; font-size:0.8rem; color:#9ca3af; padding:0.4rem 0 0.8rem 0;">
+  © 2025 · Phishing Detector NEO ·
+  <a href="https://github.com/CodeMaestroRishit/phishing-detector-api" target="_blank">GitHub</a>
+  · Built with FastAPI + Streamlit
+</div>
+""",
+    unsafe_allow_html=True,
 )
