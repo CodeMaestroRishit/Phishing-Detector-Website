@@ -8,106 +8,110 @@ import zipfile
 import pandas as pd
 import time
 from datetime import datetime
-from typing import List, Optional, Dict, Any
-from sklearn.ensemble import RandomForestClassifier
+from typing import List, Optional, Dict
 
 # ==========================================
-# 1. PAGE CONFIGURATION & STYLING
+# 1. PAGE CONFIGURATION & CSS STYLING
 # ==========================================
 st.set_page_config(
     page_title="Phishing Detector NEO",
     page_icon="🛡️",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS for Cyber-Security Theme
+# Cyber-Security Theme CSS
 st.markdown("""
 <style>
-    /* Main Background */
+    /* General App Background */
     .stApp {
         background-color: #0E1117;
+        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     }
     
-    /* Typography & Headings */
+    /* Headers */
     h1, h2, h3 {
-        color: #FFFFFF !important;
-        font-family: 'Helvetica Neue', sans-serif;
+        color: #E6E6E6 !important;
+        font-weight: 600;
     }
-    .subtitle {
-        color: #00d4ff;
-        font-size: 1.2rem;
+    h1 { font-size: 2.5rem; }
+    
+    /* Text Areas & Inputs */
+    .stTextArea textarea {
+        background-color: #161B22;
+        color: #E6E6E6;
+        border: 1px solid #30363D;
+        border-radius: 8px;
+    }
+    .stTextArea textarea:focus {
+        border-color: #58A6FF;
+        box-shadow: 0 0 0 1px #58A6FF;
+    }
+
+    /* Buttons */
+    .stButton button {
+        border-radius: 6px;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        transition: all 0.2s;
+    }
+    /* Primary Action Button */
+    div[data-testid="stButton"] > button:first-child {
+        background-color: #1F6FEB;
+        color: white;
+        border: none;
+    }
+    div[data-testid="stButton"] > button:hover {
+        opacity: 0.9;
+        transform: scale(1.01);
+    }
+
+    /* Custom Cards/Containers */
+    .css-card {
+        background-color: #161B22;
+        border: 1px solid #30363D;
+        border-radius: 10px;
+        padding: 20px;
         margin-bottom: 20px;
     }
     
-    /* Cards / Containers */
-    .css-1r6slb0 {
-        background-color: #161b22;
-        border: 1px solid #30363d;
-        border-radius: 10px;
-        padding: 20px;
-    }
-    
-    /* Custom Success/Danger Badges */
-    .badge-safe {
+    /* Verdict Badges */
+    .verdict-safe {
         background-color: #0f392b;
         color: #2ea043;
-        padding: 5px 10px;
-        border-radius: 4px;
+        padding: 8px 16px;
+        border-radius: 20px;
         border: 1px solid #2ea043;
         font-weight: bold;
+        text-align: center;
     }
-    .badge-danger {
-        background-color: #3e1515;
-        color: #ff4b4b;
-        padding: 5px 10px;
-        border-radius: 4px;
-        border: 1px solid #ff4b4b;
-        font-weight: bold;
-    }
-    .badge-warning {
+    .verdict-suspicious {
         background-color: #3d2c00;
-        color: #e3b341;
-        padding: 5px 10px;
-        border-radius: 4px;
-        border: 1px solid #e3b341;
+        color: #d29922;
+        padding: 8px 16px;
+        border-radius: 20px;
+        border: 1px solid #d29922;
         font-weight: bold;
+        text-align: center;
+    }
+    .verdict-dangerous {
+        background-color: #3e1515;
+        color: #ff7b72;
+        padding: 8px 16px;
+        border-radius: 20px;
+        border: 1px solid #ff7b72;
+        font-weight: bold;
+        text-align: center;
     }
 
-    /* Button Styling */
-    .stButton>button {
-        width: 100%;
-        border-radius: 6px;
-        font-weight: bold;
-        height: 3rem;
-    }
-    
-    /* Tab Styling */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        white-space: pre-wrap;
-        background-color: #161b22;
-        border-radius: 5px 5px 0 0;
-        color: #8b949e;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #0E1117;
-        color: #58a6ff;
-        border-top: 2px solid #58a6ff;
-    }
-    
-    /* Hide Streamlit Default Elements */
+    /* Hide Streamlit Branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. CORE LOGIC (PRESERVED & ADAPTED)
+# 2. CORE LOGIC (PRESERVED FROM ORIGINAL)
 # ==========================================
 
 MODELS_DIR = pathlib.Path("trained_models")
@@ -121,18 +125,27 @@ MODEL_FILES = {
 
 @st.cache_resource
 def setup_models():
-    """Downloads and loads models once. Cached by Streamlit."""
-    # 1. Download
+    """Download and extract models. Cached to run only once."""
+    status_container = st.empty()
+    
+    # Download
     for filename, file_id in MODEL_FILES.items():
         filepath = MODELS_DIR / filename
         if not filepath.exists():
+            status_container.info(f"📥 Downloading core component: {filename}...")
             url = f"https://drive.google.com/uc?export=download&id={file_id}"
             try:
                 urllib.request.urlretrieve(url, filepath)
-            except Exception:
-                pass # Handle silently in UI or log
+            except Exception as e:
+                st.error(f"Failed to download {filename}: {e}")
 
-    # 2. Extract
+    # Extract
+    EXPECTED_PKLS = {
+        "email_model.pkl": MODELS_DIR / "email_model.pkl",
+        "email_vectorizer.pkl": MODELS_DIR / "email_vectorizer.pkl",
+        "url_model.pkl": MODELS_DIR / "url_model.pkl",
+    }
+    
     for zip_name, pkl_name in [
         ("email_model.pkl.zip", "email_model.pkl"),
         ("email_vectorizer.pkl.zip", "email_vectorizer.pkl"),
@@ -141,40 +154,49 @@ def setup_models():
         zip_path = MODELS_DIR / zip_name
         pkl_path = MODELS_DIR / pkl_name
         if zip_path.exists() and not pkl_path.exists():
+            status_container.info(f"📦 Extracting resources: {zip_name}...")
             with zipfile.ZipFile(zip_path, "r") as z:
                 z.extractall(MODELS_DIR)
-
-    # 3. Load into memory
-    models = {}
     
-    # Email Model
-    try:
-        with open(MODELS_DIR / "email_model.pkl", "rb") as f:
-            models["email_model"] = pickle.load(f)
-        with open(MODELS_DIR / "email_vectorizer.pkl", "rb") as f:
-            models["email_vectorizer"] = pickle.load(f)
-    except:
-        models["email_model"] = None
-        models["email_vectorizer"] = None
+    status_container.empty()
+    return True
 
-    # URL Model
-    try:
-        with open(MODELS_DIR / "url_model.pkl", "rb") as f:
-            models["url_model"] = pickle.load(f)
-        models["url_features"] = ["UsingIP", "LongURL", "ShortURL", "Symbol@", "HTTPS", "Redirecting//"]
-    except:
-        models["url_model"] = None
-        models["url_features"] = []
+# Initialize Model Registry Pattern (adapted for Streamlit State)
+class ModelRegistry:
+    email_model: Optional[object] = None
+    email_vectorizer: Optional[object] = None
+    url_model: Optional[object] = None
+    feature_names: Optional[List[str]] = None
 
-    return models
+@st.cache_resource
+def load_models_into_memory():
+    """Loads pickles into memory. Cached."""
+    registry = ModelRegistry()
+    
+    # Load Email Model
+    model_path = MODELS_DIR / "email_model.pkl"
+    vectorizer_path = MODELS_DIR / "email_vectorizer.pkl"
+    if model_path.exists() and vectorizer_path.exists():
+        with open(model_path, "rb") as f:
+            registry.email_model = pickle.load(f)
+        with open(vectorizer_path, "rb") as f:
+            registry.email_vectorizer = pickle.load(f)
 
-# Initialize models
-MODELS = setup_models()
+    # Load URL Model
+    url_pkl = MODELS_DIR / "url_model.pkl"
+    if url_pkl.exists():
+        with open(url_pkl, "rb") as f:
+            registry.url_model = pickle.load(f)
+        registry.feature_names = [
+            "UsingIP", "LongURL", "ShortURL", "Symbol@", "HTTPS", "Redirecting//"
+        ]
+    
+    return registry
 
-def extract_url_features(url: str) -> List[int]:
-    feature_names = MODELS.get("url_features", [])
+# -------------------- Logic Functions --------------------
+
+def extract_url_features(url: str, feature_names: List[str]) -> List[int]:
     features = [0] * len(feature_names)
-
     def set_feat(name: str, value: int) -> None:
         if name in feature_names:
             idx = feature_names.index(name)
@@ -190,319 +212,285 @@ def extract_url_features(url: str) -> List[int]:
 
     return features
 
-def analyze_url(url: str):
-    model = MODELS.get("url_model")
-    if not model:
+def analyze_url_logic(url: str, registry: ModelRegistry):
+    if registry.url_model is None:
         return None
+    feats = extract_url_features(url, registry.feature_names)
+    pred = int(registry.url_model.predict([feats])[0])
+    proba = registry.url_model.predict_proba([feats])[0]
     
-    feats = extract_url_features(url)
-    pred = int(model.predict([feats])[0])
-    proba = model.predict_proba([feats])[0]
+    # Assuming logic: 1 = legitimate, -1 = phishing (or similar based on provided code context)
+    # The provided code had: "legitimate" if pred == 1 else "phishing"
     
     return {
-        "url": url,
+        "type": "URL",
+        "content": url,
         "prediction": "legitimate" if pred == 1 else "phishing",
-        "risk_score": float(proba[0]), # 0 = phishing prob, 1 = legit prob usually. Wait, let's check mapping.
-        # Usually sklearn classes are [0, 1]. 
-        # If pred=1 is legitimate, then class 1 is legit. Class 0 is phishing.
-        # proba[0] is phishing probability.
-        "phishing_probability": float(proba[0]) if pred == 1 else float(proba[0]), 
-        # Let's stick to a generic risk score 0-100
-        # If pred is 1 (Legit), proba[1] is high. If pred is 0 (Phishing), proba[0] is high.
-        # We want "Phishing Probability".
-        "prob_phishing": float(proba[0]) if model.classes_[0] == 0 else float(proba[1]), 
-        "features": feats,
-        "feature_names": MODELS["url_features"]
+        "probabilities": {"phishing": float(proba[0]), "legitimate": float(proba[1])},
+        "risk_score": float(proba[0]) * 100, # Phishing probability as score
+        "features_used": feats,
+        "feature_names": registry.feature_names
     }
 
-def analyze_email(text: str):
-    model = MODELS.get("email_model")
-    vect = MODELS.get("email_vectorizer")
-    if not model or not vect:
+def analyze_email_logic(text: str, registry: ModelRegistry):
+    if registry.email_model is None or registry.email_vectorizer is None:
         return None
+    tfidf = registry.email_vectorizer.transform([text])
+    pred = int(registry.email_model.predict(tfidf)[0])
+    proba = registry.email_model.predict_proba(tfidf)[0]
     
-    tfidf = vect.transform([text])
-    pred = int(model.predict(tfidf)[0])
-    proba = model.predict_proba(tfidf)[0]
-    
-    # Assuming 1 = Phishing based on original code: "phishing" if pred == 1
+    # Provided code: "phishing" if pred == 1 else "legitimate"
     return {
+        "type": "Email Body",
+        "content": text[:50] + "..." if len(text) > 50 else text,
         "prediction": "phishing" if pred == 1 else "legitimate",
-        "prob_phishing": float(proba[1]), 
+        "probabilities": {"legitimate": float(proba[0]), "phishing": float(proba[1])},
+        "risk_score": float(proba[1]) * 100 # Phishing probability
     }
 
-def run_full_scan(text_input: str):
-    """Combines Email and URL analysis"""
-    if not text_input.strip():
-        return None
-
-    results = {
-        "timestamp": datetime.now().strftime("%H:%M:%S"),
-        "input_preview": text_input[:50] + "..." if len(text_input) > 50 else text_input,
-        "email_analysis": None,
-        "url_analysis": []
-    }
-
-    # 1. Email Content Analysis
-    results["email_analysis"] = analyze_email(text_input)
-
-    # 2. URL Extraction & Analysis
+def run_dual_prediction(text: str, registry: ModelRegistry):
     url_pattern = r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
-    urls = re.findall(url_pattern, text_input)
-    
+    urls = re.findall(url_pattern, text)
+
+    email_result = None
+    # Only run email model if there is substantial text (heuristic)
+    if len(text.strip()) > 0:
+        try:
+            email_result = analyze_email_logic(text, registry)
+        except Exception:
+            pass
+
+    url_results = []
     for u in urls:
-        u_res = analyze_url(u)
-        if u_res:
-            results["url_analysis"].append(u_res)
+        res = analyze_url_logic(u, registry)
+        if res:
+            url_results.append(res)
 
-    # 3. Overall Verdict Logic
-    # Logic: If ANY URL is phishing OR Email text is phishing -> DANGEROUS
-    is_phishing_email = results["email_analysis"]["prediction"] == "phishing" if results["email_analysis"] else False
+    # Determine Overall Verdict
+    overall_status = "SAFE"
+    max_risk = 0.0
     
-    max_url_prob = 0.0
-    if results["url_analysis"]:
-        max_url_prob = max([u["prob_phishing"] for u in results["url_analysis"]])
+    # Check URLs
+    for r in url_results:
+        if r["risk_score"] > max_risk:
+            max_risk = r["risk_score"]
+        if r["prediction"] == "phishing":
+            overall_status = "DANGEROUS"
+    
+    # Check Email
+    if email_result:
+        if email_result["risk_score"] > max_risk:
+            max_risk = email_result["risk_score"]
+        if email_result["prediction"] == "phishing":
+            overall_status = "DANGEROUS"
 
-    email_prob = results["email_analysis"]["prob_phishing"] if results["email_analysis"] else 0.0
-    
-    # Combined Risk Score (Heuristic: take the higher of the two signals)
-    final_risk_score = max(email_prob, max_url_prob)
-    
-    if final_risk_score > 0.75:
-        verdict = "DANGEROUS"
-        color = "red"
-    elif final_risk_score > 0.45:
-        verdict = "SUSPICIOUS"
-        color = "orange"
-    else:
-        verdict = "SAFE"
-        color = "green"
+    # Intermediate state
+    if overall_status == "SAFE" and max_risk > 40:
+        overall_status = "SUSPICIOUS"
 
-    results["overall_verdict"] = verdict
-    results["risk_score"] = final_risk_score
-    results["color"] = color
-    
-    return results
+    return {
+        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "input_text": text,
+        "overall_verdict": overall_status,
+        "risk_score": max_risk,
+        "email_analysis": email_result,
+        "url_analysis": url_results
+    }
 
 # ==========================================
-# 3. UI COMPONENTS
+# 3. UI COMPONENT FUNCTIONS
 # ==========================================
+
+def init_session_state():
+    if 'history' not in st.session_state:
+        st.session_state['history'] = []
+    if 'input_text' not in st.session_state:
+        st.session_state['input_text'] = ""
+    if 'last_result' not in st.session_state:
+        st.session_state['last_result'] = None
 
 def render_header():
-    st.markdown("""
-        <div style="text-align: center; padding-bottom: 20px;">
-            <h1 style="margin-bottom:0;">🛡️ Phishing Detector NEO</h1>
-            <p class="subtitle">Next-Gen AI Threat Analysis System</p>
-        </div>
-    """, unsafe_allow_html=True)
-
-def sidebar_controls():
-    # Initialize session state for history
-    if 'history' not in st.session_state:
-        st.session_state.history = []
-    if 'input_text' not in st.session_state:
-        st.session_state.input_text = ""
-
-def load_example(type_):
-    if type_ == "safe":
-        st.session_state.input_text = """Hi Team,
-Just a reminder that our weekly sync is scheduled for tomorrow at 10 AM.
-Please review the attached docs: https://docs.google.com/presentation
-Thanks,
-Alice"""
-    elif type_ == "phishing":
-        st.session_state.input_text = """URGENT: Your account has been compromised!
-We detected unusual activity. 
-Verify your identity immediately to avoid suspension:
-http://bit.ly/secure-login-verify
-If you do not act within 24 hours, your account will be deleted.
-Security Team"""
-
-def render_scan_tab():
     col1, col2 = st.columns([3, 1])
-    
     with col1:
-        st.markdown("### 📥 Input Analysis")
-        st.caption("Paste an email body, SMS text, or URL below.")
-        input_text = st.text_area(
-            "Content", 
-            value=st.session_state.input_text,
-            height=200,
-            label_visibility="collapsed",
-            placeholder="Paste suspicious text or URL here..."
-        )
-        # Update session state manually if user types
-        st.session_state.input_text = input_text
-
+        st.markdown("# 🛡️ Phishing Detector NEO")
+        st.markdown("**Next-Gen AI Threat Analysis System** | powered by Dual-Stack ML")
     with col2:
-        st.markdown("### ⚡ Quick Actions")
-        if st.button("🧪 Load Phishing Sample"):
-            load_example("phishing")
-            st.rerun()
-        if st.button("✅ Load Safe Sample"):
-            load_example("safe")
-            st.rerun()
-        if st.button("🗑️ Clear Input"):
-            st.session_state.input_text = ""
-            st.rerun()
+        st.markdown("")
+        st.markdown("")
+        st.caption("System Status: 🟢 ONLINE")
 
-    st.markdown("---")
+def render_scan_tab(registry):
+    st.markdown("### 📡 Threat Scanner")
     
-    # Main Action Button
-    if st.button("🚀 INITIATE SCAN", type="primary", use_container_width=True):
-        with st.spinner("Analyzing patterns... Decrypting headers... Checking blocklists..."):
-            time.sleep(0.8) # UI effect
-            result = run_full_scan(st.session_state.input_text)
-            
-            if result:
-                st.session_state.last_result = result
-                st.session_state.history.insert(0, result) # Add to top of history
-                st.toast("Scan Complete!", icon="✅")
-            else:
-                st.error("Please enter text to analyze.")
-
-    # Display Results if available
-    if 'last_result' in st.session_state:
-        res = st.session_state.last_result
+    col_input, col_actions = st.columns([3, 1])
+    
+    with col_input:
+        input_val = st.text_area(
+            "Input Payload",
+            value=st.session_state['input_text'],
+            height=200,
+            placeholder="Paste email content, SMS text, or suspicious URLs here for analysis...",
+            label_visibility="collapsed",
+            key="main_input" # Key is crucial for state sync
+        )
+    
+    with col_actions:
+        st.write("**Quick Actions**")
+        if st.button("🧪 Load Phishing Sample", use_container_width=True):
+            st.session_state['input_text'] = "URGENT: Your account is compromised. Click here immediately: http://bit.ly/fake-login-123 to verify."
+            st.rerun()
         
-        # Result Header
+        if st.button("✅ Load Safe Sample", use_container_width=True):
+            st.session_state['input_text'] = "Hi team, here are the meeting notes for the project: https://docs.google.com/document/d/legit-id/edit"
+            st.rerun()
+            
+        if st.button("🗑️ Clear Input", use_container_width=True):
+            st.session_state['input_text'] = ""
+            st.session_state['last_result'] = None
+            st.rerun()
+
+    # Run Button
+    if st.button("🚀 RUN SECURITY SCAN", type="primary", use_container_width=True):
+        if not input_val.strip():
+            st.warning("⚠️ Please enter text to analyze.")
+        else:
+            with st.spinner("🔍 Analyzing patterns... Checking heuristic signatures..."):
+                # Simulate slight delay for UX effect
+                time.sleep(0.8)
+                result = run_dual_prediction(input_val, registry)
+                st.session_state['last_result'] = result
+                st.session_state['history'].insert(0, result) # Add to top
+                st.toast("Analysis Complete", icon="✅")
+
+    # Results Section
+    if st.session_state['last_result']:
+        res = st.session_state['last_result']
+        st.markdown("---")
         st.markdown("### 🎯 Scan Verdict")
         
-        # Cards for layout
-        r_col1, r_col2, r_col3 = st.columns([1, 2, 1])
-        
-        with r_col1:
-            # Visual Badge
-            if res["overall_verdict"] == "SAFE":
-                st.markdown(f'<div class="badge-safe" style="text-align:center; font-size:24px;">✅ SAFE</div>', unsafe_allow_html=True)
-            elif res["overall_verdict"] == "SUSPICIOUS":
-                st.markdown(f'<div class="badge-warning" style="text-align:center; font-size:24px;">⚠️ SUSPICIOUS</div>', unsafe_allow_html=True)
+        # Top Level Verdict
+        c1, c2, c3 = st.columns([1, 2, 1])
+        with c1:
+            if res['overall_verdict'] == "SAFE":
+                st.markdown('<div class="verdict-safe">✅ SAFE</div>', unsafe_allow_html=True)
+            elif res['overall_verdict'] == "SUSPICIOUS":
+                st.markdown('<div class="verdict-suspicious">⚠️ SUSPICIOUS</div>', unsafe_allow_html=True)
             else:
-                st.markdown(f'<div class="badge-danger" style="text-align:center; font-size:24px;">⛔ DANGEROUS</div>', unsafe_allow_html=True)
+                st.markdown('<div class="verdict-dangerous">⛔ DANGEROUS</div>', unsafe_allow_html=True)
         
-        with r_col2:
-            # Progress Bar
-            score_pct = int(res["risk_score"] * 100)
-            st.metric("Phishing Probability", f"{score_pct}%")
-            st.progress(score_pct / 100)
-        
-        with r_col3:
-            # Quick Stats
-            url_count = len(res["url_analysis"])
-            st.metric("URLs Found", url_count)
-
-        # Deep Dive Section
-        with st.expander("🔍 View Analysis Details", expanded=True):
-            d_col1, d_col2 = st.columns(2)
+        with c2:
+            st.markdown(f"**Threat Probability: {res['risk_score']:.1f}%**")
+            st.progress(int(res['risk_score']))
             
-            with d_col1:
-                st.markdown("#### 📧 Text Analysis")
-                if res["email_analysis"]:
-                    e_prob = int(res["email_analysis"]["prob_phishing"] * 100)
-                    st.write(f"**NLP Model Confidence:** {e_prob}% Phishing")
-                    if e_prob > 50:
-                        st.info("The language model detected urgency or keywords often used in scams.")
-                    else:
-                        st.success("The text structure appears normal.")
-                else:
-                    st.write("No text content analyzed.")
+        with c3:
+            st.metric("URLs Found", len(res['url_analysis']))
 
-            with d_col2:
-                st.markdown("#### 🔗 URL Analysis")
-                if res["url_analysis"]:
-                    for u in res["url_analysis"]:
-                        u_risk = int(u["prob_phishing"] * 100)
-                        emoji = "🔴" if u_risk > 50 else "🟢"
-                        st.markdown(f"**{emoji} {u['url']}**")
-                        st.caption(f"Risk Score: {u_risk}%")
-                        
-                        # Feature breakdown (mini)
-                        feats = u["features"]
-                        names = u["feature_names"]
-                        flags = []
-                        # Map back the feature vector
-                        for i, val in enumerate(feats):
-                            if names[i] == "UsingIP" and val == 1: flags.append("IP Address Used")
-                            if names[i] == "ShortURL" and val == 1: flags.append("Shortener Service")
-                            if names[i] == "Symbol@" and val == 1: flags.append("Contains '@'")
-                            if names[i] == "Redirecting//" and val == 1: flags.append("Double Slash Redirection")
-                        
-                        if flags:
-                            st.markdown(f"*Flags: {', '.join(flags)}*")
-                else:
-                    st.write("No URLs found in the input.")
+        # Detailed Cards
+        st.markdown("#### 🔍 Analysis Breakdown")
+        
+        # Email Analysis Card
+        if res['email_analysis']:
+            with st.expander("📧 Email Content Analysis", expanded=True):
+                e = res['email_analysis']
+                ec1, ec2 = st.columns([1, 3])
+                with ec1:
+                    st.metric("Model Confidence", f"{e['probabilities']['phishing']*100:.1f}%")
+                with ec2:
+                    st.info(f"The NLP model classified this text as **{e['prediction'].upper()}** based on linguistic patterns (urgency, keyword frequency, tone).")
+
+        # URL Analysis Card
+        if res['url_analysis']:
+            with st.expander("🔗 URL Heuristic Analysis", expanded=True):
+                for u in res['url_analysis']:
+                    st.markdown(f"**Target:** `{u['content']}`")
+                    cols = st.columns(4)
+                    cols[0].metric("Risk Score", f"{u['risk_score']:.1f}%")
+                    cols[1].metric("Prediction", u['prediction'].upper())
+                    
+                    # Flag specific features found
+                    flags = []
+                    feat_names = u['feature_names']
+                    feat_vals = u['features_used']
+                    
+                    if feat_names:
+                        for i, val in enumerate(feat_vals):
+                            if val == 1: # Assuming 1 indicates presence of suspicious trait in this model logic
+                                if feat_names[i] == "UsingIP": flags.append("IP Address Host")
+                                if feat_names[i] == "ShortURL": flags.append("URL Shortener")
+                                if feat_names[i] == "Symbol@": flags.append("Obfuscated (@)")
+                                if feat_names[i] == "Redirecting//": flags.append("Double Redirection")
+                    
+                    if flags:
+                        st.markdown(f"🚩 **Flags Raised:** {', '.join(flags)}")
+                    else:
+                        st.markdown("✅ No specific obfuscation flags detected.")
+                    st.markdown("---")
+        elif not res['url_analysis']:
+             st.info("No URLs detected in the input.")
 
 def render_history_tab():
-    st.markdown("### 📜 Recent Scans")
-    if not st.session_state.history:
-        st.info("No scan history yet. Run a scan to see logs here.")
-        return
-
-    # Create a simplified dataframe for display
-    history_data = []
-    for item in st.session_state.history:
-        history_data.append({
-            "Time": item["timestamp"],
-            "Preview": item["input_preview"],
-            "Verdict": item["overall_verdict"],
-            "Risk Score": f"{int(item['risk_score']*100)}%"
-        })
-    
-    df = pd.DataFrame(history_data)
-    st.dataframe(
-        df, 
-        use_container_width=True,
-        column_config={
-            "Verdict": st.column_config.TextColumn(
-                "Verdict",
-                help="Model classification",
-                width="medium"
-            ),
-            "Risk Score": st.column_config.ProgressColumn(
-                "Risk Score",
-                format="%f",
-                min_value=0,
-                max_value=100,
-            ),
-        }
-    )
+    st.markdown("### 📜 Scan Log")
+    if not st.session_state['history']:
+        st.caption("No scans performed yet in this session.")
+    else:
+        # Convert history to DF for nice display
+        data = []
+        for item in st.session_state['history']:
+            data.append({
+                "Time": item['timestamp'],
+                "Verdict": item['overall_verdict'],
+                "Risk Score": f"{item['risk_score']:.1f}%",
+                "Snippet": item['input_text'][:40] + "..."
+            })
+        df = pd.DataFrame(data)
+        st.dataframe(df, use_container_width=True, hide_index=True)
 
 def render_about_tab():
-    st.markdown("### 🧠 Under the Hood")
+    st.markdown("### 🧠 How It Works")
     st.markdown("""
-    **Phishing Detector NEO** uses a hybrid AI approach to detect threats:
+    **Phishing Detector NEO** utilizes a dual-layer machine learning architecture:
     
-    1.  **Dual-Layer Architecture:**
-        *   **Layer 1 (NLP):** A TF-IDF + Random Forest model analyzes the linguistic patterns, tone, and urgency of the email body.
-        *   **Layer 2 (Heuristic):** A specialized model parses URLs for malicious characteristics (IP usage, length, obfuscation).
-    
-    2.  **Feature Engineering:**
-        *   We extract specific flags like `UsingIP`, `TinyURL`, `Redirects`, and `HTTPS` validity.
-    
-    3.  **Real-Time Scoring:**
-        *   The system aggregates probabilities from both layers to generate a unified risk score.
+    1.  **Natural Language Processing (NLP)**
+        *   Analyzes the *body text* of emails/messages.
+        *   Uses **TF-IDF Vectorization** to convert text into numerical data.
+        *   Powered by a **Random Forest Classifier** trained on thousands of phishing vs. legitimate emails.
+        
+    2.  **URL Heuristics Engine**
+        *   Extracts structural features from links (e.g., IP address usage, URL length, presence of `@`, redirect patterns).
+        *   Detects obfuscation techniques commonly used by attackers to hide malicious domains.
+        
+    **Why this matters:** Traditional filters often miss zero-day attacks. By combining content analysis with structural URL inspection, NEO provides a holistic risk assessment.
     """)
     
-    st.info("Model files are hosted securely and loaded into memory for low-latency inference.")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.info("**Privacy Note:** This demo runs locally in the browser session. No data is stored permanently.")
+    with col2:
+        st.success("**Model Status:** Pre-trained models loaded successfully.")
 
 # ==========================================
-# 4. MAIN APP FLOW
+# 4. MAIN APP ENTRY POINT
 # ==========================================
 
 def main():
-    sidebar_controls()
+    # 1. Initialization
+    setup_models() # Download if needed
+    registry = load_models_into_memory() # Load to RAM
+    init_session_state() # UI State
+    
+    # 2. Header
     render_header()
     
-    # Main Navigation
-    tab1, tab2, tab3 = st.tabs(["🔍 SCANNER", "📜 HISTORY", "ℹ️ ABOUT"])
+    # 3. Navigation
+    tab_scan, tab_history, tab_about = st.tabs(["🔍 SCANNER", "📜 HISTORY", "ℹ️ ABOUT"])
     
-    with tab1:
-        render_scan_tab()
+    with tab_scan:
+        render_scan_tab(registry)
     
-    with tab2:
+    with tab_history:
         render_history_tab()
         
-    with tab3:
+    with tab_about:
         render_about_tab()
 
 if __name__ == "__main__":
