@@ -304,11 +304,29 @@ def run_url_prediction(url: str):
     Wraps the existing URL API.
     Returns dict with keys: prob, is_phishing, verdict, risk_label
     """
-    r = requests.post(API_URL_ENDPOINT, json={"url": url}, timeout=60)
+    try:
+        r = requests.post(API_URL_ENDPOINT, json={"url": url}, timeout=60)
+    except Exception as e:
+        # network-level issues
+        raise RuntimeError(f"Request to URL API failed: {e}")
+
+    # Debug: show raw response for non-200 to see what's going on
     if r.status_code != 200:
+        try:
+            err_text = r.text
+        except Exception:
+            err_text = "<no body>"
+        # This will show up in Streamlit so you can see the underlying error from FastAPI
+        st.error(f"URL API returned {r.status_code}. Raw response:\n\n{err_text}")
+        # Also raise to trigger the generic handler if you want
         raise RuntimeError(f"API Error: {r.status_code}")
 
     data = r.json()
+    # Assuming your backend returns this shape:
+    # {
+    #   "prediction": "phishing" | "legit",
+    #   "probabilities": { "phishing": float, "legit": float, ... }
+    # }
     prob = (data["probabilities"]["phishing"] or 0) * 100
     is_phishing = data["prediction"] == "phishing"
     verdict = "SUSPICIOUS LINK" if is_phishing else "URL APPEARS SAFE"
