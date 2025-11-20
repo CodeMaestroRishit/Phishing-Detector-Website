@@ -144,7 +144,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. BACKEND LOGIC (Unchanged Core)
+# 2. BACKEND LOGIC (Crash-Proofed)
 # ==========================================
 MODELS_DIR = pathlib.Path("trained_models")
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
@@ -156,37 +156,63 @@ MODEL_FILES = {
 
 @st.cache_resource
 def setup_models():
+    """Safely downloads and extracts models, ignoring errors to prevent crashes."""
+    # 1. Download
     for filename, file_id in MODEL_FILES.items():
         filepath = MODELS_DIR / filename
         if not filepath.exists():
             url = f"https://drive.google.com/uc?export=download&id={file_id}"
             try:
+                # Basic download attempt
                 urllib.request.urlretrieve(url, filepath)
-            except: pass
+            except Exception:
+                pass # Ignore network errors
+
+    # 2. Extract with integrity check
     for zip_name, pkl_name in [("email_model.pkl.zip", "email_model.pkl"), ("email_vectorizer.pkl.zip", "email_vectorizer.pkl"), ("url_model.pkl.zip", "url_model.pkl")]:
         zip_path = MODELS_DIR / zip_name
         pkl_path = MODELS_DIR / pkl_name
+        
         if zip_path.exists() and not pkl_path.exists():
-            with zipfile.ZipFile(zip_path, "r") as z: z.extractall(MODELS_DIR)
+            try:
+                # Check if it is actually a zip file (avoids BadZipFile crash)
+                if zipfile.is_zipfile(zip_path):
+                    with zipfile.ZipFile(zip_path, "r") as z:
+                        z.extractall(MODELS_DIR)
+                else:
+                    # It's likely an HTML error page from Drive, delete it
+                    os.remove(zip_path)
+            except Exception:
+                # If anything goes wrong, just pass. The app will run in fallback mode.
+                pass
 
 class ModelRegistry:
     email_model: Optional[object] = None
     email_vectorizer: Optional[object] = None
     url_model: Optional[object] = None
     feature_names: Optional[List[str]] = None
+    is_loaded: bool = False
 
 @st.cache_resource
 def load_models():
     setup_models()
     reg = ModelRegistry()
+    
+    # Attempt to load Email Model
     try:
         with open(MODELS_DIR / "email_model.pkl", "rb") as f: reg.email_model = pickle.load(f)
         with open(MODELS_DIR / "email_vectorizer.pkl", "rb") as f: reg.email_vectorizer = pickle.load(f)
-    except: pass
+    except Exception:
+        reg.email_model = None
+        
+    # Attempt to load URL Model
     try:
         with open(MODELS_DIR / "url_model.pkl", "rb") as f: reg.url_model = pickle.load(f)
         reg.feature_names = ["UsingIP", "LongURL", "ShortURL", "Symbol@", "HTTPS", "Redirecting//"]
-    except: pass
+    except Exception:
+        reg.url_model = None
+        
+    reg.is_loaded = (reg.email_model is not None) or (reg.url_model is not None)
     return reg
 
 def extract_url_features(url, feature_names):
@@ -206,23 +232,47 @@ def run_scan(text, reg):
     url_pattern = r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
     urls = re.findall(url_pattern, text)
     
-    # Logic
+    # --------------------------------
+    # ML LOGIC OR FALLBACK HEURISTICS
+    # --------------------------------
     email_res = None
+    
+    # EMAIL ANALYSIS
     if reg.email_model and len(text) > 10:
-        tfidf = reg.email_vectorizer.transform([text])
-        pred = reg.email_model.predict(tfidf)[0]
-        prob = reg.email_model.predict_proba(tfidf)[0][1]
-        email_res = {"pred": "phishing" if pred == 1 else "legitimate", "prob": prob}
+        # ML Path
+        try:
+            tfidf = reg.email_vectorizer.transform([text])
+            pred = reg.email_model.predict(tfidf)[0]
+            prob = reg.email_model.predict_proba(tfidf)[0][1]
+            email_res = {"pred": "phishing" if pred == 1 else "legitimate", "prob": prob}
+        except: pass
+    elif len(text) > 10:
+        # Fallback Heuristics (if ML fails)
+        suspicious_keywords = ["urgent", "verify", "account", "suspended", "bank", "password", "click here"]
+        hits = sum(1 for k in suspicious_keywords if k in text.lower())
+        prob = min(hits * 0.2, 0.95)
+        email_res = {"pred": "phishing" if prob > 0.5 else "legitimate", "prob": prob}
 
+    # URL ANALYSIS
     url_res = []
-    if reg.url_model:
-        for u in urls:
-            feats = extract_url_features(u, reg.feature_names)
-            pred = reg.url_model.predict([feats])[0]
-            prob = reg.url_model.predict_proba([feats])[0][0] # Class 0 usually phishing in this dataset context
-            # Adjusting based on previous context: if pred==1 is legit
-            # Let's assume prob[0] is phishing based on user context
-            url_res.append({"url": u, "prob": prob, "pred": "legitimate" if pred == 1 else "phishing", "feats": feats})
+    for u in urls:
+        if reg.url_model:
+            # ML Path
+            try:
+                feats = extract_url_features(u, reg.feature_names)
+                pred = reg.url_model.predict([feats])[0]
+                prob = reg.url_model.predict_proba([feats])[0][0]
+                url_res.append({"url": u, "prob": prob, "pred": "legitimate" if pred == 1 else "phishing", "feats": feats})
+            except: pass
+        else:
+            # Fallback Heuristics
+            risk = 0.1
+            if "bit.ly" in u or "tinyurl" in u: risk += 0.4
+            if "@" in u: risk += 0.3
+            if u.count(".") > 3: risk += 0.2
+            if "http:" in u and "https" not in u: risk += 0.2
+            risk = min(risk, 0.99)
+            url_res.append({"url": u, "prob": risk, "pred": "phishing" if risk > 0.5 else "legitimate", "feats": []})
 
     # Aggregation
     max_risk = email_res["prob"] if email_res else 0.0
@@ -340,8 +390,10 @@ def render_scanner(reg):
                     st.markdown('<div class="glass-card" style="height:100%">', unsafe_allow_html=True)
                     st.markdown("#### 📧 NLP Content Analysis")
                     if res['email']:
-                        st.markdown(f"**Model Confidence:** `{int(res['email']['prob']*100)}%`")
-                        st.markdown(f"**Classification:** `{res['email']['pred'].upper()}`")
+                        # Check if we are using ML or Fallback
+                        source = "ML Engine" if reg.email_model else "Heuristic Engine"
+                        st.markdown(f"**Source:** `{source}`")
+                        st.markdown(f"**Confidence:** `{int(res['email']['prob']*100)}%`")
                         if res['email']['prob'] > 0.5:
                             st.error("⚠️ Urgent/Threatening language detected.")
                         else:
@@ -388,7 +440,7 @@ def render_history():
         </div>
         """, unsafe_allow_html=True)
 
-def render_about():
+def render_about(reg):
     c1, c2 = st.columns([1, 1])
     with c1:
         st.markdown("""
@@ -397,16 +449,17 @@ def render_about():
         
         1. **Semantic Analysis (NLP)**
            * Vectorizes email body text using TF-IDF.
-           * Evaluates intent, urgency, and impersonation attempts using Random Forest.
+           * Evaluates intent, urgency, and impersonation attempts.
            
         2. **Structural Heuristics**
            * Deconstructs URLs to find obfuscation.
            * Checks for IP usage, tinyURL redirection, and deep linking.
         """)
     with c2:
-        st.markdown("""
-        ### 🚀 Deployment
-        * **Latency:** < 200ms inference time.
+        status = "🟢 ONLINE (Models Loaded)" if reg.is_loaded else "🟡 DEMO MODE (Heuristics)"
+        st.markdown(f"""
+        ### 🚀 Deployment Status
+        * **System:** {status}
         * **Privacy:** Runs locally in browser memory.
         * **Scalability:** Stateless architecture.
         """)
@@ -429,7 +482,7 @@ def main():
     with tab2:
         render_history()
     with tab3:
-        render_about()
+        render_about(reg)
 
 if __name__ == "__main__":
     main()
